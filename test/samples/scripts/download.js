@@ -2,9 +2,13 @@ import { createReadStream } from 'bare-fs'
 import { access, readdir, readFile } from 'bare-fs/promises'
 import { createHash } from 'bare-crypto'
 import barePath from 'bare-path'
-import { spawnSync } from 'bare-subprocess'
+import Corestore from 'corestore'
+import Hyperdrive from 'hyperdrive'
+import { decode } from 'hypercore-id-encoding'
+import Hyperswarm from 'hyperswarm'
+import Localdrive from 'localdrive'
 
-const drive = 'qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo'
+const key = 'qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo'
 const samplesDir = barePath.join('test', 'samples')
 
 await main()
@@ -16,31 +20,41 @@ async function main() {
 }
 
 async function download() {
+  const filesDir = barePath.join(samplesDir, 'files')
+
+  if (await exists(filesDir)) return false
+
+  const store = new Corestore(barePath.join('node_modules', '.cache', 'hyperdrive'))
+  const drive = new Hyperdrive(store, decode(key))
+  const local = new Localdrive(filesDir)
+  const swarm = new Hyperswarm()
+
+  swarm.on('connection', (socket) => store.replicate(socket))
+
   try {
-    await access(barePath.join(samplesDir, 'files'))
-    return false
-  } catch (err) {
-    if (err.code !== 'ENOENT') throw err
-  }
-
-  const { status, signal } = spawnSync(
-    'node',
-    [
-      barePath.join('node_modules', 'drives', 'bin.js'),
-      'mirror',
-      '--storage',
-      barePath.join('node_modules', '.cache', 'drives'),
-      drive,
-      barePath.join(samplesDir, 'files')
-    ],
-    { stdio: 'inherit' }
-  )
-
-  if (status !== 0) {
-    throw new Error(`Failed to download sample files${signal ? ` (${signal})` : ''}`)
+    await drive.ready()
+    swarm.join(drive.discoveryKey)
+    const done = store.findingPeers()
+    swarm.flush().then(done, done)
+    const mirror = drive.mirror(local)
+    await mirror.done()
+    console.log(`Downloaded ${mirror.count.files} sample files`)
+  } finally {
+    await swarm.destroy()
+    await store.close()
   }
 
   return true
+}
+
+async function exists(filename) {
+  try {
+    await access(filename)
+    return true
+  } catch (err) {
+    if (err.code === 'ENOENT') return false
+    throw err
+  }
 }
 
 async function verify() {

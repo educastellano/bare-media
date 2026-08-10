@@ -10,14 +10,15 @@ const samplesDir = barePath.join('test', 'samples')
 await main()
 
 async function main() {
-  await download()
-  await verify()
+  if (await download()) {
+    await verify()
+  }
 }
 
 async function download() {
   try {
     await access(barePath.join(samplesDir, 'files'))
-    return
+    return false
   } catch (err) {
     if (err.code !== 'ENOENT') throw err
   }
@@ -38,6 +39,8 @@ async function download() {
   if (status !== 0) {
     throw new Error(`Failed to download sample files${signal ? ` (${signal})` : ''}`)
   }
+
+  return true
 }
 
 async function verify() {

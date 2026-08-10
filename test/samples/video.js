@@ -6,7 +6,7 @@ import { join } from 'bare-path'
 import { video } from '../..'
 import { randomFileName } from '../helpers'
 
-import suite from './suites/video.json' with { type: 'json' }
+import suite from './suites/video'
 import download from './download'
 
 hook('download samples', async function (t) {

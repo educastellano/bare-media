@@ -27,7 +27,7 @@ jobs:
           key: samples-${{ hashFiles('test/samples/suites/*.json') }}
       - name: Download samples
         run: |
-          npm i -g drives
+          npm i -g drives@3
           drives mirror qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo test/samples/files
       - name: Verify samples
         run: bare test/samples/scripts/verify.js

@@ -1,7 +1,7 @@
 import { createReadStream } from 'bare-fs'
 import { access, readdir, readFile } from 'bare-fs/promises'
 import { createHash } from 'bare-crypto'
-import barePath from 'bare-path'
+import { join } from 'bare-path'
 import Corestore from 'corestore'
 import Hyperdrive from 'hyperdrive'
 import { decode } from 'hypercore-id-encoding'
@@ -9,7 +9,7 @@ import Hyperswarm from 'hyperswarm'
 import Localdrive from 'localdrive'
 
 const key = 'qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo'
-const samplesDir = barePath.join('test', 'samples')
+const samplesDir = join('test', 'samples')
 
 await main()
 
@@ -20,11 +20,11 @@ async function main() {
 }
 
 async function download() {
-  const filesDir = barePath.join(samplesDir, 'files')
+  const filesDir = join(samplesDir, 'files')
 
   if (await exists(filesDir)) return false
 
-  const store = new Corestore(barePath.join('node_modules', '.cache', 'hyperdrive'))
+  const store = new Corestore(join('node_modules', '.cache', 'hyperdrive'))
   const drive = new Hyperdrive(store, decode(key))
   const local = new Localdrive(filesDir)
   const swarm = new Hyperswarm()
@@ -58,17 +58,17 @@ async function exists(filename) {
 }
 
 async function verify() {
-  const suitesDir = barePath.join(samplesDir, 'suites')
+  const suitesDir = join(samplesDir, 'suites')
   let verified = 0
 
   for (const suiteFile of (await readdir(suitesDir)).sort()) {
     if (!suiteFile.endsWith('.json')) continue
 
-    const suite = JSON.parse(await readFile(barePath.join(suitesDir, suiteFile), 'utf8'))
+    const suite = JSON.parse(await readFile(join(suitesDir, suiteFile), 'utf8'))
     if (!suite.catalog) continue
 
     for (const sample of suite.catalog.samples || []) {
-      const filename = barePath.join(samplesDir, suite.catalog.path, sample.path)
+      const filename = join(samplesDir, suite.catalog.path, sample.path)
       const actual = await sha256(filename)
 
       if (actual !== sample.sha256) {

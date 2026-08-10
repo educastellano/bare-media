@@ -1,11 +1,17 @@
-import { test } from 'brittle'
+import { test, hook } from 'brittle'
 import fs from 'bare-fs'
 import os from 'bare-os'
 import barePath from 'bare-path'
 
 import { video } from '../..'
 import { randomFileName } from '../helpers'
+
 import suite from './suites/video.json' with { type: 'json' }
+import download from './download'
+
+hook('download samples', async function (t) {
+  await download()
+})
 
 for (const sample of suite.tests.metadata.samples) {
   test(`samples: video metadata ${sample.path}`, async (t) => {

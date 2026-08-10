@@ -1,4 +1,4 @@
-import { test } from 'brittle'
+import { test, hook } from 'brittle'
 import fs from 'bare-fs'
 import os from 'bare-os'
 import barePath from 'bare-path'
@@ -6,6 +6,11 @@ import barePath from 'bare-path'
 import { detectMimeType, image } from '../..'
 import { randomFileName } from '../helpers'
 import suite from './suites/image.json' with { type: 'json' }
+import download from './download'
+
+hook('download samples', async function (t) {
+  await download()
+})
 
 for (const sample of suite.tests.metadata.samples) {
   test(`samples: image metadata() ${sample.path}`, async (t) => {

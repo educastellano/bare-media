@@ -11,9 +11,7 @@ import Localdrive from 'localdrive'
 const key = 'qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo'
 const samplesDir = join('test', 'samples')
 
-await main()
-
-async function main() {
+export default async function main() {
   if (await download()) {
     await verify()
   }

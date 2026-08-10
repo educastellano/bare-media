@@ -1,7 +1,7 @@
 import { test, hook } from 'brittle'
 import fs from 'bare-fs'
 import os from 'bare-os'
-import barePath from 'bare-path'
+import { join } from 'bare-path'
 
 import { video } from '../..'
 import { randomFileName } from '../helpers'
@@ -51,7 +51,7 @@ for (const sample of suite.tests.transcode.samples) {
 
     run(`samples: video transcode ${sample} to ${format}`, async (t) => {
       const inputPath = pathFor(sample)
-      const outputPath = barePath.join(os.tmpdir(), randomFileName(extensionFor(format)))
+      const outputPath = join(os.tmpdir(), randomFileName(extensionFor(format)))
       t.teardown(() => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath)
       })
@@ -111,7 +111,7 @@ function pathFor(path) {
 function samplePath(catalog, path) {
   const sample = catalog.samples.find((sample) => sample.path === path)
   if (!sample) throw new Error(`Unknown sample path: ${path}`)
-  return barePath.join('./test/samples', catalog.path, sample.path)
+  return join('./test/samples', catalog.path, sample.path)
 }
 
 function extensionFor(format) {

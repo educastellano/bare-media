@@ -1,7 +1,7 @@
 import { test, hook } from 'brittle'
 import fs from 'bare-fs'
 import os from 'bare-os'
-import barePath from 'bare-path'
+import { join } from 'bare-path'
 
 import { detectMimeType, image } from '../..'
 import { randomFileName } from '../helpers'
@@ -158,7 +158,7 @@ function pathFor(path) {
 function samplePath(catalog, path) {
   const sample = catalog.samples.find((sample) => sample.path === path)
   if (!sample) throw new Error(`Unknown sample path: ${path}`)
-  return barePath.join('./test/samples', catalog.path, sample.path)
+  return join('./test/samples', catalog.path, sample.path)
 }
 
 export function frameLength(rgba) {

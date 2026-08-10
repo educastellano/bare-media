@@ -1,5 +1,5 @@
 import('./test/image')
 import('./test/video')
 import('./test/common')
-import('./test/samples/image.js')
-import('./test/samples/video.js')
+import('./test/samples/image')
+import('./test/samples/video')

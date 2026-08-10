@@ -5,7 +5,7 @@ import { join } from 'bare-path'
 
 import { detectMimeType, image } from '../..'
 import { randomFileName } from '../helpers'
-import suite from './suites/image.json' with { type: 'json' }
+import suite from './suites/image'
 import download from './download'
 
 hook('download samples', async function (t) {

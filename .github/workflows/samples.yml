@@ -32,5 +32,7 @@ jobs:
         run: |
           npm i -g drives
           drives mirror qm5bc1h7ooaeiiiagzaiiq7qh5ecs9ob1ufm98qr8zwsg7rauabo test/samples/files
+      - name: Verify samples
+        run: bare test/samples/scripts/verify.js
       - name: Run sample suite
         run: npm run test:samples

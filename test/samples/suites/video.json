@@ -322,6 +322,18 @@
           "format": "mp4"
         },
         {
+          "sample": "h264-aac-rotation.mp4",
+          "format": "mp4"
+        },
+        {
+          "sample": "h264-aac-rotation.mp4",
+          "format": "matroska"
+        },
+        {
+          "sample": "h264-aac-rotation.mp4",
+          "format": "webm"
+        },
+        {
           "sample": "mixed-multitrack.webm",
           "format": "mp4"
         },

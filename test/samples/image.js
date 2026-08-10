@@ -8,7 +8,7 @@ import { randomFileName } from '../helpers'
 import suite from './suites/image.json' with { type: 'json' }
 
 for (const sample of suite.tests.metadata.samples) {
-  test(`image metadata() ${sample.path}`, async (t) => {
+  test(`samples: image metadata() ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const metadata = await image(path).metadata()
@@ -17,7 +17,7 @@ for (const sample of suite.tests.metadata.samples) {
 }
 
 for (const sample of suite.tests.metadata.samples) {
-  test(`image metadata.strip() ${sample.path}`, async (t) => {
+  test(`samples: image metadata.strip() ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const source = fs.readFileSync(path)
@@ -33,7 +33,7 @@ for (const sample of suite.tests.metadata.samples) {
 }
 
 for (const sample of suite.tests.decode.samples) {
-  test(`image decode ${sample.path}`, async (t) => {
+  test(`samples: image decode ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const rgba = await image(path).decode()
@@ -48,7 +48,7 @@ for (const sample of suite.tests.decode.samples) {
 }
 
 for (const sample of suite.tests.crop.samples) {
-  test(`image crop ${sample}`, async (t) => {
+  test(`samples: image crop ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const rgba = await image(path).decode()
@@ -62,7 +62,7 @@ for (const sample of suite.tests.crop.samples) {
 }
 
 for (const sample of suite.tests.resize.samples) {
-  test(`image resize ${sample}`, async (t) => {
+  test(`samples: image resize ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const resized = await image(path).decode().resize({ maxWidth: 64, maxHeight: 64 })
@@ -72,7 +72,7 @@ for (const sample of suite.tests.resize.samples) {
 }
 
 for (const sample of suite.tests.orientate.exif) {
-  test(`image orientate ${sample.path}`, async (t) => {
+  test(`samples: image orientate ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const oriented = await image(path).decode().orientate()
@@ -82,7 +82,7 @@ for (const sample of suite.tests.orientate.exif) {
 }
 
 for (const sample of suite.tests.orientate.samples) {
-  test(`image orientate with transform ${sample}`, async (t) => {
+  test(`samples: image orientate with transform ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const rgba = await image(path).decode()
@@ -96,7 +96,7 @@ for (const sample of suite.tests.orientate.samples) {
 }
 
 for (const sample of suite.tests.rotate.samples) {
-  test(`image rotate ${sample}`, async (t) => {
+  test(`samples: image rotate ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const rgba = await image(path).decode()
@@ -108,7 +108,7 @@ for (const sample of suite.tests.rotate.samples) {
 }
 
 for (const sample of suite.tests.flip.samples) {
-  test(`image flip ${sample}`, async (t) => {
+  test(`samples: image flip ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const rgba = await image(path).decode()
@@ -122,7 +122,7 @@ for (const sample of suite.tests.flip.samples) {
 
 for (const sample of suite.tests.encode.samples) {
   for (const mimetype of suite.tests.encode.mimetypes) {
-    test(`image encode ${sample} as ${mimetype}`, { timeout: 120_000 }, async (t) => {
+    test(`samples: image encode ${sample} as ${mimetype}`, { timeout: 120_000 }, async (t) => {
       const path = pathFor(sample)
 
       const rgba = firstFrame(await image(path).decode())
@@ -135,7 +135,7 @@ for (const sample of suite.tests.encode.samples) {
 }
 
 for (const sample of suite.tests.encode.animated) {
-  test(`image encode animation ${sample.path}`, async (t) => {
+  test(`samples: image encode animation ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const rgba = await image(path).decode()

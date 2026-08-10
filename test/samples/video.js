@@ -8,7 +8,7 @@ import { randomFileName } from '../helpers'
 import suite from './suites/video.json' with { type: 'json' }
 
 for (const sample of suite.tests.metadata.samples) {
-  test(`video metadata ${sample.path}`, async (t) => {
+  test(`samples: video metadata ${sample.path}`, async (t) => {
     const path = pathFor(sample.path)
 
     const metadata = await video(path).metadata()
@@ -25,7 +25,7 @@ for (const sample of suite.tests.metadata.samples) {
 }
 
 for (const sample of suite.tests.extractFrames.samples) {
-  test(`video extractFrames ${sample}`, async (t) => {
+  test(`samples: video extractFrames ${sample}`, async (t) => {
     const path = pathFor(sample)
 
     const metadata = await video(path).metadata()
@@ -43,7 +43,7 @@ for (const sample of suite.tests.transcode.samples) {
     )
     const run = skip ? test.skip : test
 
-    run(`video transcode ${sample} to ${format}`, async (t) => {
+    run(`samples: video transcode ${sample} to ${format}`, async (t) => {
       const inputPath = pathFor(sample)
       const outputPath = barePath.join(os.tmpdir(), randomFileName(extensionFor(format)))
       t.teardown(() => {

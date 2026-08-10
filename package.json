@@ -19,8 +19,7 @@
   "scripts": {
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
-    "test": "brittle-bare --coverage test.js",
-    "test:samples": "brittle-bare samples.js"
+    "test": "brittle-bare --coverage test.js"
   },
   "keywords": [],
   "author": "Holepunch",
@@ -59,8 +58,10 @@
     "bare-path": "^3.0.0",
     "bare-performance": "^1.3.0",
     "bare-process": "^4.2.2",
+    "bare-subprocess": "^5.2.3",
     "brittle": "^3.16.3",
     "corestore": "^7.4.5",
+    "drives": "^3.0.0",
     "hyperblobs": "^2.8.0",
     "hypercore-blob-server": "^1.11.0",
     "lunte": "^1.8.0",

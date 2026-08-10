@@ -20,7 +20,7 @@
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
     "test": "brittle-bare --coverage test.js",
-    "test:samples": "brittle-bare test/samples/index.js"
+    "test:samples": "brittle-bare samples.js"
   },
   "keywords": [],
   "author": "Holepunch",

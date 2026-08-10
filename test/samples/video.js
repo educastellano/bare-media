@@ -8,8 +8,8 @@ import { randomFileName } from '../helpers'
 import suite from './suites/video.json' with { type: 'json' }
 
 for (const sample of suite.tests.metadata.samples) {
-  test(`video metadata ${sample.id}`, async (t) => {
-    const path = pathFor(sample.id)
+  test(`video metadata ${sample.path}`, async (t) => {
+    const path = pathFor(sample.path)
 
     const metadata = await video(path).metadata()
     t.is(metadata.width, sample.width, 'metadata width')
@@ -24,9 +24,9 @@ for (const sample of suite.tests.metadata.samples) {
   })
 }
 
-for (const sample of toSamples(suite.tests.extractFrames.samples)) {
-  test(`video extractFrames ${sample.id}`, async (t) => {
-    const path = pathFor(sample.id)
+for (const sample of suite.tests.extractFrames.samples) {
+  test(`video extractFrames ${sample}`, async (t) => {
+    const path = pathFor(sample)
 
     const metadata = await video(path).metadata()
     const frame = await video(path).extractFrames({ frameIndex: 0 })
@@ -36,15 +36,15 @@ for (const sample of toSamples(suite.tests.extractFrames.samples)) {
   })
 }
 
-for (const sample of toSamples(suite.tests.transcode.samples)) {
+for (const sample of suite.tests.transcode.samples) {
   for (const format of suite.tests.transcode.formats) {
     const skip = suite.tests.transcode.skip.find(
-      (skip) => skip.sample === sample.id && skip.format === format
+      (skip) => skip.sample === sample && skip.format === format
     )
     const run = skip ? test.skip : test
 
-    run(`video transcode ${sample.id} to ${format}`, async (t) => {
-      const inputPath = pathFor(sample.id)
+    run(`video transcode ${sample} to ${format}`, async (t) => {
+      const inputPath = pathFor(sample)
       const outputPath = barePath.join(os.tmpdir(), randomFileName(extensionFor(format)))
       t.teardown(() => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath)
@@ -98,18 +98,14 @@ for (const sample of toSamples(suite.tests.transcode.samples)) {
   }
 }
 
-function toSamples(ids) {
-  return ids.map((id) => ({ id }))
+function pathFor(path) {
+  return samplePath(suite.catalog, path)
 }
 
-function pathFor(id) {
-  return samplePath(suite.catalog, id)
-}
-
-function samplePath(catalog, id) {
-  const sample = catalog.samples.find((sample) => sample.id === id)
-  if (!sample) throw new Error(`Unknown sample id: ${id}`)
-  return barePath.join('./test/samples/files', sample.source, sample.path)
+function samplePath(catalog, path) {
+  const sample = catalog.samples.find((sample) => sample.path === path)
+  if (!sample) throw new Error(`Unknown sample path: ${path}`)
+  return barePath.join('./test/samples', catalog.path, sample.path)
 }
 
 function extensionFor(format) {

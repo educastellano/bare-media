@@ -1,6 +1,6 @@
 {
   "catalog": {
-    "path": "files/images",
+    "path": "files/samples/images",
     "samples": [
       {
         "path": "still.bmp",

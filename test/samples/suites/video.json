@@ -1,6 +1,6 @@
 {
   "catalog": {
-    "path": "files/videos",
+    "path": "files/samples/videos",
     "samples": [
       {
         "path": "h264-aac.mp4",

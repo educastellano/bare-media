@@ -5,10 +5,11 @@ import { join } from 'bare-path'
 
 import { detectMimeType, image } from '../..'
 import { randomFileName } from '../helpers'
+
 import suite from './suites/image'
 import download from './download'
 
-hook('download samples', async function (t) {
+hook('download samples', { timeout: 180_000 }, async function (t) {
   await download()
 })
 

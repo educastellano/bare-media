@@ -9,7 +9,7 @@ import { randomFileName } from '../helpers'
 import suite from './suites/video'
 import download from './download'
 
-hook('download samples', async function (t) {
+hook('download samples', { timeout: 180_000 }, async function (t) {
   await download()
 })
 

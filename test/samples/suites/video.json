@@ -273,29 +273,15 @@
         "vp9-alpha.webm",
         "vp9-odd-dimensions.webm",
         "vp8-alpha-odd-dimensions.webm",
-        "h264-aac-rotation.mp4",
         "h264-aac-multitrack.mp4",
         "mixed-multitrack.webm",
         "h264-no-durations.mkv",
+        "h264-aac-rotation.mp4",
         "wmv2-vorbis.mkv"
       ],
       "formats": ["mp4", "webm", "matroska"],
-      "skip": [
-        {
-          "sample": "h264-aac-rotation.mp4",
-          "format": "mp4",
-          "reason": "Dimensions differ because rotation is applied to the pixels"
-        },
-        {
-          "sample": "h264-aac-rotation.mp4",
-          "format": "matroska",
-          "reason": "Dimensions differ because rotation is applied to the pixels"
-        },
-        {
-          "sample": "h264-aac-rotation.mp4",
-          "format": "webm",
-          "reason": "Dimensions differ because rotation is applied to the pixels"
-        }
+      "rotated": [
+        "h264-aac-rotation.mp4"
       ]
     }
   }

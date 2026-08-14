@@ -45,12 +45,7 @@ for (const sample of suite.tests.extractFrames.samples) {
 
 for (const sample of suite.tests.transcode.samples) {
   for (const format of suite.tests.transcode.formats) {
-    const skip = suite.tests.transcode.skip.find(
-      (skip) => skip.sample === sample && skip.format === format
-    )
-    const run = skip ? test.skip : test
-
-    run(`samples: video transcode ${sample} to ${format}`, async (t) => {
+    test(`samples: video transcode ${sample} to ${format}`, async (t) => {
       const inputPath = pathFor(sample)
       const outputPath = join(os.tmpdir(), randomFileName(extensionFor(format)))
       t.teardown(() => {
@@ -92,8 +87,14 @@ for (const sample of suite.tests.transcode.samples) {
       const source = await video(inputPath).metadata()
       const metadata = await video(outputPath).metadata()
 
-      t.is(metadata.width, source.width, 'width')
-      t.is(metadata.height, source.height, 'height')
+      if (suite.tests.transcode.rotated.includes(sample)) {
+        t.is(metadata.width, source.height, 'width')
+        t.is(metadata.height, source.width, 'height')
+      } else {
+        t.is(metadata.width, source.width, 'width')
+        t.is(metadata.height, source.height, 'height')
+      }
+
       t.is(metadata.codec.name, 'vp9', 'codec')
       if (source.duration > 0) {
         const tolerance = Math.max(0.12, source.duration * 0.1)

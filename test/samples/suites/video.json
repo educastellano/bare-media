@@ -280,9 +280,7 @@
         "wmv2-vorbis.mkv"
       ],
       "formats": ["mp4", "webm", "matroska"],
-      "rotated": [
-        "h264-aac-rotation.mp4"
-      ]
+      "rotated": ["h264-aac-rotation.mp4"]
     }
   }
 }

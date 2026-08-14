@@ -8,6 +8,7 @@ import { randomFileName } from '../helpers'
 
 import suite from './suites/video'
 import download from './download'
+import { samplePath } from './helpers'
 
 hook('download samples', { timeout: 180_000 }, async function (t) {
   await download()
@@ -106,12 +107,6 @@ for (const sample of suite.tests.transcode.samples) {
 
 function pathFor(path) {
   return samplePath(suite.catalog, path)
-}
-
-function samplePath(catalog, path) {
-  const sample = catalog.samples.find((sample) => sample.path === path)
-  if (!sample) throw new Error(`Unknown sample path: ${path}`)
-  return join('./test/samples', catalog.path, sample.path)
 }
 
 function extensionFor(format) {

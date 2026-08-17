@@ -12,7 +12,7 @@ export default async function benchmark(run) {
   const cpu = process.cpuUsage(cpuBefore)
   const cpuMs = (cpu.user + cpu.system) / 1000
   const rssAfter = getRss()
-  const rssPeak = getRssPeak()
+  const rssMax = getRssMax()
 
   console.log(
     JSON.stringify({
@@ -21,7 +21,7 @@ export default async function benchmark(run) {
       cpuPercent: (cpuMs / ms) * 100,
       rssBefore,
       rssAfter,
-      rssPeak,
+      rssMax,
       rssDiff: rssAfter - rssBefore
     })
   )
@@ -33,6 +33,6 @@ function getRss() {
   return process.memoryUsage().rss
 }
 
-function getRssPeak() {
+function getRssMax() {
   return process.resourceUsage().maxRSS * 1024
 }

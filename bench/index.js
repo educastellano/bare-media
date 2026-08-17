@@ -30,7 +30,7 @@ for (const suite of suites) {
   const media = samples.filter((sample) => getMimeType(sample)?.startsWith(suite.mimetype))
   if (media.length === 0) continue
 
-  console.log(`${suite.name} benchmark time, CPU, peak RSS, and RSS change`)
+  console.log(`${suite.name} benchmark time, CPU, peak RSS, and RSS diff`)
 
   for (const benchmark of suite.benchmarks) {
     console.log(`\n${benchmark}`)
@@ -56,11 +56,11 @@ for (const suite of suites) {
 
 function printResult(sample, result) {
   console.log(
-    `${sample.padEnd(16)} ${result.duration.toFixed(2).padStart(8)} ms  ${result.cpuDuration.toFixed(2).padStart(8)} ms CPU (${result.cpuUtilization.toFixed(1)}%)  ${formatBytes(result.peak).padStart(10)} peak  ${formatDelta(result.delta).padStart(10)}`
+    `${sample.padEnd(16)} ${result.ms.toFixed(2).padStart(8)} ms  ${result.cpuMs.toFixed(2).padStart(8)} ms CPU (${result.cpuPercent.toFixed(1)}%)  ${formatBytes(result.rssPeak).padStart(10)} peak  ${formatRssDiff(result.rssDiff).padStart(10)}`
   )
 }
 
-function formatDelta(bytes) {
+function formatRssDiff(bytes) {
   const sign = bytes >= 0 ? '+' : '-'
   return `${sign}${formatBytes(Math.abs(bytes))}`
 }

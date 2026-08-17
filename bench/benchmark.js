@@ -2,37 +2,37 @@ import performance from 'bare-performance'
 import process from 'bare-process'
 
 export default async function benchmark(run) {
-  const baseline = rss()
+  const rssBefore = getRss()
   const cpuBefore = process.cpuUsage()
   const start = performance.now()
 
   const resultKeptFromGC = await run()
 
-  const duration = performance.now() - start
+  const ms = performance.now() - start
   const cpu = process.cpuUsage(cpuBefore)
-  const cpuDuration = (cpu.user + cpu.system) / 1000
-  const current = rss()
-  const peak = maxRss()
+  const cpuMs = (cpu.user + cpu.system) / 1000
+  const rssAfter = getRss()
+  const rssPeak = getRssPeak()
 
   console.log(
     JSON.stringify({
-      duration,
-      cpuDuration,
-      cpuUtilization: (cpuDuration / duration) * 100,
-      baseline,
-      current,
-      peak,
-      delta: current - baseline
+      ms,
+      cpuMs,
+      cpuPercent: (cpuMs / ms) * 100,
+      rssBefore,
+      rssAfter,
+      rssPeak,
+      rssDiff: rssAfter - rssBefore
     })
   )
 
   return resultKeptFromGC
 }
 
-function rss() {
+function getRss() {
   return process.memoryUsage().rss
 }
 
-function maxRss() {
+function getRssPeak() {
   return process.resourceUsage().maxRSS * 1024
 }

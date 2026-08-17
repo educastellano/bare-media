@@ -17,6 +17,7 @@
     "bare-media": "./bin.js"
   },
   "scripts": {
+    "bench": "bare bench/index.js",
     "format": "prettier --write . && lunte --fix",
     "lint": "prettier --check . && lunte",
     "test": "brittle-bare --coverage test.js"
@@ -58,6 +59,7 @@
     "bare-path": "^3.0.0",
     "bare-performance": "^1.3.0",
     "bare-process": "^4.2.2",
+    "bare-subprocess": "^5.2.3",
     "brittle": "^3.16.3",
     "corestore": "^7.4.5",
     "hyperblobs": "^2.8.0",

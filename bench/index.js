@@ -1,0 +1,65 @@
+import { readdir } from 'bare-fs/promises'
+import { join } from 'bare-path'
+import process from 'bare-process'
+import { spawnSync } from 'bare-subprocess'
+import getMimeType from 'get-mime-type'
+
+import downloadSamples from '../test/samples/download'
+
+const samplesDir = join('test', 'samples', 'files', 'benchmark')
+const suites = [
+  {
+    name: 'Image',
+    directory: 'image',
+    benchmarks: ['decode', 'resize', 'crop', 'rotate', 'flip', 'encode'],
+    mimetype: 'image/'
+  },
+  {
+    name: 'Video',
+    directory: 'video',
+    benchmarks: ['metadata', 'extract-frames', 'transcode'],
+    mimetype: 'video/'
+  }
+]
+
+await downloadSamples()
+
+const samples = (await readdir(samplesDir)).filter((name) => !name.startsWith('.')).sort()
+
+for (const suite of suites) {
+  const media = samples.filter((sample) => getMimeType(sample)?.startsWith(suite.mimetype))
+  if (media.length === 0) continue
+
+  console.log(`${suite.name} benchmark time, CPU, and peak RSS`)
+
+  for (const benchmark of suite.benchmarks) {
+    console.log(`\n${benchmark}`)
+
+    for (const sample of media) {
+      const child = spawnSync(
+        process.execPath,
+        [join('bench', suite.directory, `${benchmark}.js`), join(samplesDir, sample)],
+        {
+          cwd: process.cwd(),
+          stdio: ['ignore', 'pipe', 'pipe']
+        }
+      )
+
+      if (child.status !== 0) throw new Error(child.stderr.toString())
+
+      printResult(sample, JSON.parse(child.stdout.toString()))
+    }
+  }
+
+  console.log()
+}
+
+function printResult(sample, result) {
+  console.log(
+    `${sample.padEnd(16)} ${result.duration.toFixed(2).padStart(8)} ms  ${result.cpuDuration.toFixed(2).padStart(8)} ms CPU (${result.cpuUtilization.toFixed(1)}%)  ${formatBytes(result.peak).padStart(10)} peak  ${`+${formatBytes(result.delta)}`.padStart(10)}`
+  )
+}
+
+function formatBytes(bytes) {
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`
+}

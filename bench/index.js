@@ -1,4 +1,5 @@
 import { readdir } from 'bare-fs/promises'
+import { fileURLToPath } from 'bare-url'
 import { join } from 'bare-path'
 import process from 'bare-process'
 import { spawnSync } from 'bare-subprocess'
@@ -6,7 +7,8 @@ import getMimeType from 'get-mime-type'
 
 import downloadSamples from '../test/samples/download'
 
-const samplesDir = join('test', 'samples', 'files', 'benchmark')
+const abs = fileURLToPath(new URL('..', import.meta.url))
+const samplesDir = join(abs, 'test', 'samples', 'files', 'benchmark')
 const suites = [
   {
     name: 'Image',

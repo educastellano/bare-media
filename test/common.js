@@ -1,4 +1,7 @@
 import { test } from 'brittle'
+import fs from 'bare-fs'
+import path from 'bare-path'
+import tmp from 'test-tmp'
 
 import { detectMimeType } from '..'
 import { isImageSupported, isVideoSupported, isMediaSupported } from '../types'
@@ -9,6 +12,16 @@ test('detectMimeType()', (t) => {
   t.is(detectMimeType(Buffer.from([0x47, 0x49, 0x46, 0x38])), 'image/gif')
   t.is(detectMimeType(Buffer.from('<svg></svg>')), 'image/svg+xml')
   t.is(detectMimeType(Buffer.from('not an image')), null)
+})
+
+test('detectMimeType.fromPath()', async (t) => {
+  t.is(await detectMimeType.fromPath('./test/fixtures/sample.png'), 'image/png')
+  t.is(await detectMimeType.fromPath('./test/fixtures/sample.mp4'), 'video/mp4')
+
+  const filepath = path.join(await tmp(t), 'ambiguous.mp4')
+  fs.writeFileSync(filepath, Buffer.from('000000186674797069736f6d0000000069736f6d6d703431', 'hex'))
+
+  t.is(await detectMimeType.fromPath(filepath), null)
 })
 
 test('codecs support flags', (t) => {

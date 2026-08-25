@@ -18,6 +18,7 @@ test('detectMimeType.fromPath()', async (t) => {
   t.is(await detectMimeType.fromPath('./test/fixtures/sample.png'), 'image/png')
   t.is(await detectMimeType.fromPath('./test/fixtures/sample.mp4'), 'video/mp4')
 
+  // An ISO BMFF file without media tracks is not enough to infer a mimetype
   const filepath = path.join(await tmp(t), 'ambiguous.mp4')
   fs.writeFileSync(filepath, Buffer.from('000000186674797069736f6d0000000069736f6d6d703431', 'hex'))
 

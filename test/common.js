@@ -15,14 +15,37 @@ test('detectMimeType()', (t) => {
 })
 
 test('detectMimeType.fromPath()', async (t) => {
-  t.is(await detectMimeType.fromPath('./test/fixtures/sample.png'), 'image/png')
-  t.is(await detectMimeType.fromPath('./test/fixtures/sample.mp4'), 'video/mp4')
+  t.is(await detectMimeType.fromPath('./test/fixtures/sample.jpg'), 'image/jpeg', 'jpeg')
+  t.is(await detectMimeType.fromPath('./test/fixtures/sample.png'), 'image/png', 'png')
+  t.is(await detectMimeType.fromPath('./test/fixtures/sample.mp4'), 'video/mp4', 'mp4')
+  t.is(await detectMimeType.fromPath('./test/fixtures/wrong-extension.jpg'), 'image/png', 'png wrong extension')
+})
 
-  // An ISO BMFF file without media tracks is not enough to infer a mimetype
-  const filepath = path.join(await tmp(t), 'ambiguous.mp4')
-  fs.writeFileSync(filepath, Buffer.from('000000186674797069736f6d0000000069736f6d6d703431', 'hex'))
+test('detectMimeType.fromPath() rejects ambiguous formats', async (t) => {
+  const dir = await tmp(t)
+  const cases = [
+    {
+      name: 'octet-stream',
+      filename: 'ambiguous.cr3',
+      hex: '00000010667479706372782000000000',
+    },
+    {
+      name: 'audio without an audio track',
+      filename: 'ambiguous.m4a',
+      hex: '00000010667479704d34412000000000',
+    },
+    {
+      name: 'video without a video track',
+      filename: 'ambiguous.mp4',
+      hex: '000000106674797069736f6d00000000',
+    }
+  ]
 
-  t.is(await detectMimeType.fromPath(filepath), null)
+  for (const testCase of cases) {
+    const filepath = path.join(dir, testCase.filename)
+    fs.writeFileSync(filepath, Buffer.from(testCase.hex, 'hex'))
+    t.is(await detectMimeType.fromPath(filepath), null, `null for ${testCase.name}`)
+  }
 })
 
 test('codecs support flags', (t) => {

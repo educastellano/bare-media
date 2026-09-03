@@ -11,7 +11,7 @@ import {
 } from 'bare-media/types'
 import getMimeType from 'get-mime-type'
 
-import { cleanMetadata } from './lib/bin'
+import { cleanMetadata, formatMetadata } from './lib/bin'
 import { detectMimeType } from './src/codecs'
 import pkg from './package'
 
@@ -86,14 +86,14 @@ async function metadata(parsed) {
 
     const data = (await image(input).metadata()) || { mimetype }
     const output = parsed.flags.raw ? data : cleanMetadata(data)
-    print(output, { json: parsed.flags.json })
+    console.log(formatMetadata(output, { json: parsed.flags.json }))
     return
   }
 
   if (mimetype.startsWith('video/')) {
     const data = await video(input).metadata()
     const output = parsed.flags.raw ? data : cleanMetadata(data)
-    print(output, { json: parsed.flags.json })
+    console.log(formatMetadata(output, { json: parsed.flags.json }))
     return
   }
 
@@ -194,33 +194,6 @@ function validateFlag(value, name, type) {
     return Number.parseInt(value)
   }
   return value
-}
-
-function print(value, opts = {}) {
-  const { prefix = '', json = false } = opts
-
-  if (json) {
-    console.log(JSON.stringify(value, null, 2))
-    return
-  }
-
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry && typeof entry === 'object') {
-      if (Buffer.isBuffer(entry)) {
-        console.log(`${prefix}${key}:`, entry.toString())
-      } else if (Array.isArray(entry)) {
-        console.log(`${prefix}${key}:`)
-        for (const value of entry) {
-          print(value, { prefix: `${prefix}  ` })
-        }
-      } else {
-        console.log(`${prefix}${key}:`)
-        print(entry, { prefix: `${prefix}  ` })
-      }
-    } else {
-      console.log(`${prefix}${key}: ${String(entry)}`)
-    }
-  }
 }
 
 async function main() {

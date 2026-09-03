@@ -5,6 +5,7 @@ import path from 'bare-path'
 import process from 'bare-process'
 import { spawnSync } from 'bare-subprocess'
 
+import { image } from '..'
 import { cleanMetadata, formatMetadata } from '../lib/bin'
 import { randomFileName } from './helpers'
 
@@ -59,6 +60,44 @@ test('CLI convert command', (t) => {
   t.is(result.status, 0)
   t.is(output(result), outputPath)
   t.ok(fs.statSync(outputPath).size > 0)
+})
+
+test('CLI convert --max-frames', async (t) => {
+  const outputPath = path.join(os.tmpdir(), randomFileName('webp'))
+  t.teardown(() => fs.rm(outputPath, { force: true }))
+
+  const result = runCli(['convert', 'test/fixtures/animated.webp', outputPath, '--max-frames', '3'])
+  const rgba = await image(outputPath).decode()
+
+  t.is(result.status, 0)
+  t.is(rgba.frames.length, 3)
+})
+
+test('CLI convert --max-bytes', (t) => {
+  const outputPath = path.join(os.tmpdir(), randomFileName('jpg'))
+  t.teardown(() => fs.rm(outputPath, { force: true }))
+
+  const result = runCli(['convert', 'test/fixtures/sample.jpg', outputPath, '--max-bytes', '3000'])
+
+  t.is(result.status, 0)
+  t.ok(fs.statSync(outputPath).size <= 3000)
+})
+
+test('CLI convert --orientate', async (t) => {
+  const outputPath = path.join(os.tmpdir(), randomFileName('jpg'))
+  t.teardown(() => fs.rm(outputPath, { force: true }))
+
+  const result = runCli([
+    'convert',
+    'test/fixtures/exif-orientation.jpg',
+    outputPath,
+    '--orientate'
+  ])
+  const rgba = await image(outputPath).decode()
+
+  t.is(result.status, 0)
+  t.is(rgba.width, 150)
+  t.is(rgba.height, 120)
 })
 
 test('CLI transcode command', (t) => {

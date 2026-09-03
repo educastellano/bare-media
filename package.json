@@ -9,6 +9,7 @@
     "./types": "./types.js"
   },
   "files": [
+    "lib",
     "src",
     "index.js",
     "types.js"

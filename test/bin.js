@@ -43,6 +43,13 @@ test('CLI metadata --strip', (t) => {
   t.absent(metadata.exif?.EXIF_VERSION)
 })
 
+test('CLI metadata command with no metadata', (t) => {
+  const result = runCli(['metadata', 'test/fixtures/sample.svg'])
+
+  t.is(result.status, 0, result.stderr.toString())
+  t.is(result.stdout.toString(), '', 'prints nothing')
+})
+
 test('CLI convert command', (t) => {
   const outputPath = path.join(os.tmpdir(), randomFileName('webp'))
   t.teardown(() => fs.rm(outputPath, { force: true }))

@@ -86,14 +86,16 @@ async function metadata(parsed) {
 
     const data = (await image(input).metadata()) || { mimetype }
     const output = parsed.flags.raw ? data : cleanMetadata(data)
-    console.log(formatMetadata(output, { json: parsed.flags.json }))
+    const text = formatMetadata(output, { json: parsed.flags.json })
+    if (text) console.log(text)
     return
   }
 
   if (mimetype.startsWith('video/')) {
     const data = await video(input).metadata()
     const output = parsed.flags.raw ? data : cleanMetadata(data)
-    console.log(formatMetadata(output, { json: parsed.flags.json }))
+    const text = formatMetadata(output, { json: parsed.flags.json })
+    if (text) console.log(text)
     return
   }
 

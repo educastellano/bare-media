@@ -11,11 +11,35 @@ import { randomFileName } from './helpers'
 test('CLI metadata command', (t) => {
   const result = runCli(['metadata', '--json', 'test/fixtures/exif-orientation.jpg'])
   const metadata = JSON.parse(output(result))
-  console.log(metadata)
 
   t.is(result.status, 0)
   t.is(metadata.exif.EXIF_VERSION, '0210')
   t.is(metadata.orientation, 6)
+})
+
+test('CLI metadata --raw', (t) => {
+  const result = runCli(['metadata', '--raw', '--json', 'test/fixtures/exif-orientation.jpg'])
+  const metadata = JSON.parse(output(result))
+
+  t.is(result.status, 0)
+  t.alike(metadata.exif.EXIF_VERSION, [48, 50, 49, 48])
+})
+
+test('CLI metadata --strip', (t) => {
+  const outputPath = path.join(os.tmpdir(), randomFileName('jpg'))
+  t.teardown(() => fs.rm(outputPath, { force: true }))
+
+  const result = runCli(['metadata', '--strip', 'test/fixtures/exif-orientation.jpg', outputPath])
+
+  t.is(result.status, 0)
+  t.ok(fs.statSync(outputPath).size > 0)
+
+  const metadataResult = runCli(['metadata', '--json', outputPath])
+  const metadata = JSON.parse(output(metadataResult))
+
+  t.is(metadataResult.status, 0)
+  t.absent(metadata.orientation)
+  t.absent(metadata.exif?.EXIF_VERSION)
 })
 
 test('CLI convert command', (t) => {

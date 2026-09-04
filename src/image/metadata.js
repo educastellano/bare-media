@@ -20,20 +20,27 @@ async function readHeifMetadata(buffer, filter) {
     const uri = []
 
     for (const item of metadata) {
-      if (item.type === HEIF_METADATA_TYPE.EXIF) {
-        if (item.data.byteLength < 4) continue
+      switch (item.type) {
+        case HEIF_METADATA_TYPE.EXIF: {
+          if (item.data.byteLength < 4) break
 
-        const offset = 4 + item.data.readUInt32BE(0)
-        const tiff = item.data.subarray(offset)
-        if (tiff.byteLength) data.exifRaw = Buffer.concat([EXIF_HEADER, tiff])
-      } else if (item.type === HEIF_METADATA_TYPE.MIME) {
-        if (item.contentType === XMP_CONTENT_TYPE) {
-          data.xmp = item.data.toString()
-        } else {
-          mime.push({ contentType: item.contentType, data: item.data })
+          const offset = 4 + item.data.readUInt32BE(0)
+          const tiff = item.data.subarray(offset)
+          if (tiff.byteLength) data.exifRaw = Buffer.concat([EXIF_HEADER, tiff])
+          break
         }
-      } else if (item.type === HEIF_METADATA_TYPE.URI) {
-        uri.push({ uriType: item.uriType, data: item.data })
+        case HEIF_METADATA_TYPE.MIME:
+          if (item.contentType === XMP_CONTENT_TYPE) {
+            data.xmp = item.data.toString()
+          } else {
+            mime.push({ contentType: item.contentType, data: item.data })
+          }
+          break
+        case HEIF_METADATA_TYPE.URI:
+          uri.push({ uriType: item.uriType, data: item.data })
+          break
+        default:
+          break
       }
     }
 

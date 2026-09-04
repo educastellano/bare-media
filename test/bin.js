@@ -148,6 +148,12 @@ test('cleanMetadata() keeps readable buffers', (t) => {
   t.is(cleanMetadata(Buffer.from('CameraBrand')), 'CameraBrand')
 })
 
+test('cleanMetadata() summarizes long or multiline text', (t) => {
+  t.is(cleanMetadata('first\nsecond'), '<text data: 12 bytes>')
+  t.is(cleanMetadata('x'.repeat(257)), '<text data: 257 bytes>')
+  t.is(cleanMetadata(Buffer.from('first\nsecond')), '<text data: 12 bytes>')
+})
+
 test('cleanMetadata() recursively cleans metadata', (t) => {
   const input = {
     version: Buffer.from('0210'),

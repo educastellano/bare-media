@@ -101,7 +101,6 @@ async function metadata(buffer, opts = {}) {
   let heifMetadata = []
   let exifRaw
 
-
   const mimetype = detectMimeType(buffer)
 
   if (HEIF_MIMETYPES.has(mimetype)) {

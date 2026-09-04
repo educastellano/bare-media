@@ -16,8 +16,6 @@ async function readHeifMetadata(buffer, filter) {
     const heif = await import('bare-heif')
     const metadata = heif.getMetadata(buffer, filter)
     const data = {}
-    const mime = []
-    const uri = []
 
     for (const item of metadata) {
       switch (item.type) {
@@ -33,19 +31,18 @@ async function readHeifMetadata(buffer, filter) {
           if (item.contentType === XMP_CONTENT_TYPE) {
             data.xmp = item.data.toString()
           } else {
-            mime.push({ contentType: item.contentType, data: item.data })
+            data.mime = data.mime || []
+            data.mime.push({ contentType: item.contentType, data: item.data })
           }
           break
         case HEIF_METADATA_TYPE.URI:
-          uri.push({ uriType: item.uriType, data: item.data })
+          data.uri = data.uri || []
+          data.uri.push({ uriType: item.uriType, data: item.data })
           break
         default:
           break
       }
     }
-
-    if (mime.length) data.mime = mime
-    if (uri.length) data.uri = uri
 
     return data
   } catch {

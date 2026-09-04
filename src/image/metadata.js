@@ -4,6 +4,12 @@ import { detectMimeType } from '../codecs.js'
 const EXIF_MIMETYPES = new Set([IMAGE.JPEG, IMAGE.JPG, IMAGE.TIFF, IMAGE.TIF])
 const HEIF_MIMETYPES = new Set([IMAGE.HEIC, IMAGE.HEIF, IMAGE.AVIF])
 const EXIF_HEADER = Buffer.from('Exif\0\0')
+const HEIF_METADATA_TYPE = {
+  EXIF: 'Exif',
+  MIME: 'mime',
+  URI: 'uri '
+}
+const XMP_CONTENT_TYPE = 'application/rdf+xml'
 
 async function readHeifMetadata(buffer, filter) {
   try {
@@ -14,19 +20,19 @@ async function readHeifMetadata(buffer, filter) {
     const uri = []
 
     for (const item of metadata) {
-      if (item.type === 'Exif') {
+      if (item.type === HEIF_METADATA_TYPE.EXIF) {
         if (item.data.byteLength < 4) continue
 
         const offset = 4 + item.data.readUInt32BE(0)
         const tiff = item.data.subarray(offset)
         if (tiff.byteLength) data.exifRaw = Buffer.concat([EXIF_HEADER, tiff])
-      } else if (item.type === 'mime') {
-        if (item.contentType === 'application/rdf+xml') {
+      } else if (item.type === HEIF_METADATA_TYPE.MIME) {
+        if (item.contentType === XMP_CONTENT_TYPE) {
           data.xmp = item.data.toString()
         } else {
           mime.push({ contentType: item.contentType, data: item.data })
         }
-      } else if (item.type === 'uri ') {
+      } else if (item.type === HEIF_METADATA_TYPE.URI) {
         uri.push({ uriType: item.uriType, data: item.data })
       }
     }
@@ -96,7 +102,7 @@ async function metadata(buffer, opts = {}) {
   if (!isHeif && !isExif) return {}
 
   const { exifRaw, ...extra } = isHeif
-    ? await readHeifMetadata(buffer, opts.tag ? 'Exif' : undefined)
+    ? await readHeifMetadata(buffer, opts.tag ? HEIF_METADATA_TYPE.EXIF : undefined)
     : { exifRaw: buffer }
 
   if (opts.tag) {

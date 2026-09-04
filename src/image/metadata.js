@@ -1,10 +1,51 @@
 import { IMAGE } from '../../types.js'
 import { detectMimeType } from '../codecs.js'
 
-const supportedExifMimetypes = new Set([IMAGE.JPEG, IMAGE.JPG, IMAGE.TIFF, IMAGE.TIF])
+const EXIF_MIMETYPES = new Set([IMAGE.JPEG, IMAGE.JPG, IMAGE.TIFF, IMAGE.TIF])
+const HEIF_MIMETYPES = new Set([IMAGE.HEIC, IMAGE.HEIF, IMAGE.AVIF])
 
-function isExifSupported(buffer) {
-  return supportedExifMimetypes.has(detectMimeType(buffer))
+const EXIF_HEADER = Buffer.from('Exif\0\0')
+
+async function readHeifMetadata(buffer) {
+  try {
+    const heif = await import('bare-heif')
+    return heif.getMetadata(buffer)
+  } catch {
+    return []
+  }
+}
+
+function extractHeifExif(metadata) {
+  const item = metadata.find((item) => item.type === 'Exif')
+  if (!item || item.data.byteLength < 4) return null
+
+  const offset = 4 + item.data.readUInt32BE(0)
+  const data = item.data.subarray(offset)
+
+  return data.byteLength ? Buffer.concat([EXIF_HEADER, data]) : null
+}
+
+function extractHeifNonExif(metadata) {
+  const data = {}
+  const mime = []
+  const uri = []
+
+  for (const item of metadata) {
+    if (item.type === 'mime') {
+      if (item.contentType === 'application/rdf+xml') {
+        data.xmp = item.data.toString()
+      } else {
+        mime.push({ contentType: item.contentType, data: item.data })
+      }
+    } else if (item.type === 'uri ') {
+      uri.push({ uriType: item.uriType, data: item.data })
+    }
+  }
+
+  if (mime.length) data.mime = mime
+  if (uri.length) data.uri = uri
+
+  return data
 }
 
 // entry.read() can return a Buffer viewing libexif memory rather than a copy,
@@ -40,8 +81,6 @@ async function exifValue(buffer, tag) {
 }
 
 async function exifMetadata(buffer) {
-  if (!isExifSupported(buffer)) return {}
-
   const data = {}
 
   try {
@@ -57,21 +96,37 @@ async function exifMetadata(buffer) {
   }
 }
 
-function metadataTag(buffer, tag) {
-  if (!isExifSupported(buffer)) return null
-  return exifValue(buffer, tag)
-}
-
 async function metadata(buffer, opts = {}) {
-  if (!isExifSupported(buffer)) return {}
+  const data = {}
+  let heifMetadata = []
+  let exifRaw
 
-  if (opts.tag) {
-    return metadataTag(buffer, opts.tag)
+  // exif
+
+  const mimetype = detectMimeType(buffer)
+
+  if (HEIF_MIMETYPES.has(mimetype)) {
+    heifMetadata = await readHeifMetadata(buffer)
+    exifRaw = extractHeifExif(heifMetadata)
+  } else if (EXIF_MIMETYPES.has(mimetype)) {
+    exifRaw = buffer
+  } else {
+    return data
   }
 
-  const data = {}
+  if (opts.tag) {
+    return exifRaw ? exifValue(exifRaw, opts.tag) : null
+  }
 
-  data.exif = await exifMetadata(buffer)
+  data.exif = exifRaw ? await exifMetadata(exifRaw) : {}
+
+  // heif items: xmp, mime, uri
+
+  if (HEIF_MIMETYPES.has(mimetype)) {
+    Object.assign(data, extractHeifNonExif(heifMetadata))
+  }
+
+  // common metadata
 
   if (data.exif.ORIENTATION) {
     data.orientation = data.exif.ORIENTATION

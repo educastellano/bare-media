@@ -53,6 +53,30 @@
       {
         "path": "still.heic",
         "sha256": "8aa50c7001ef9a081a929c5a30cd1886c5abc6370c2841b208ce0b2b980bca22"
+      },
+      {
+        "path": "metadata-exif.heic",
+        "sha256": "b9f2c0f12eacb06cc3f216c0a6c2a823c6e8083cd4b43a29ef6329b785b16643"
+      },
+      {
+        "path": "metadata-exif.avif",
+        "sha256": "7c15c43c208cd4b195f6126b058b0ce8c8f6a8b2d80f03c900a452d762d2990e"
+      },
+      {
+        "path": "metadata-xmp.heic",
+        "sha256": "e63ce8a6f2f803fc40fe68969f3328c38180c61721fa517d26bfd809513f9c5e"
+      },
+      {
+        "path": "metadata-xmp.avif",
+        "sha256": "d2aed025be93caeb85599bba748188c8d52b26905e552a663cf41cfd15df72b5"
+      },
+      {
+        "path": "metadata-uri.heic",
+        "sha256": "566a7a838d8e3e1b8563b4fb1c2696e8cd9594c25d9984b06ca252dfd1fde9ed"
+      },
+      {
+        "path": "metadata-uri.avif",
+        "sha256": "53aeb2d0a2a23d22bb216e913f41b8274fcc888d0717430859a03ecf9dbad5ee"
       }
     ]
   },
@@ -62,6 +86,34 @@
         {
           "path": "oriented.jpg",
           "orientation": 6
+        }
+      ]
+    },
+    "strip": {
+      "samples": [
+        {
+          "path": "metadata-exif.heic",
+          "payload": "bare-media sample author"
+        },
+        {
+          "path": "metadata-exif.avif",
+          "payload": "bare-media sample author"
+        },
+        {
+          "path": "metadata-xmp.heic",
+          "payload": "bare-media XMP sample"
+        },
+        {
+          "path": "metadata-xmp.avif",
+          "payload": "bare-media XMP sample"
+        },
+        {
+          "path": "metadata-uri.heic",
+          "payload": "bare-media URI metadata sample"
+        },
+        {
+          "path": "metadata-uri.avif",
+          "payload": "bare-media URI metadata sample"
         }
       ]
     },

@@ -263,6 +263,20 @@ test('image.metadata.strip().save() strips all metadata and saves the file', asy
   })
 })
 
+test('image.metadata.strip() strips HEIC metadata', async (t) => {
+  const stripped = await image('./test/fixtures/metadata-xmp.heic').metadata.strip()
+
+  t.alike(await image.metadata(stripped), { exif: {} })
+  t.absent(stripped.includes('<x:xmpmeta'))
+})
+
+test('image.metadata.strip() strips AVIF metadata', async (t) => {
+  const stripped = await image('./test/fixtures/metadata-xmp.avif').metadata.strip()
+
+  t.alike(await image.metadata(stripped), { exif: {} })
+  t.absent(stripped.includes('<x:xmpmeta'))
+})
+
 test('isStripMetadataSupported() agrees with strip()', async (t) => {
   const formats = ['avif', 'bmp', 'gif', 'heic', 'ico', 'jpg', 'png', 'svg', 'tiff', 'webp']
 

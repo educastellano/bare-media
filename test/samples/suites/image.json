@@ -77,6 +77,38 @@
       {
         "path": "metadata-uri.avif",
         "sha256": "53aeb2d0a2a23d22bb216e913f41b8274fcc888d0717430859a03ecf9dbad5ee"
+      },
+      {
+        "path": "samsung-a32-01.heic",
+        "sha256": "1b62f2f1969d4bc04bb3e8d094dbdd7c96a070a8692bb305c517c1a78357118b"
+      },
+      {
+        "path": "samsung-a32-02.heic",
+        "sha256": "fbb59e78fac17ab72331da3f4f650a0aade2e55159ab8ac4390899e297dc9f71"
+      },
+      {
+        "path": "samsung-a32-03.heic",
+        "sha256": "eca52795e2acb6123f40ef47b59611f1c4d20762bfff443ac929a47800a11a49"
+      },
+      {
+        "path": "iphone-12-pro-01.heic",
+        "sha256": "8e2a5725aa7639678a0c10d25e1211981d81c0d94062db51e99dc002ce6ff349"
+      },
+      {
+        "path": "iphone-12-pro-02.heic",
+        "sha256": "65960bf2782cd8ebd29a958e75b6adb7dff2bbff841389e869d917438c729010"
+      },
+      {
+        "path": "iphone-12-pro-03.heic",
+        "sha256": "9fbec4990572aebe765b9c1bd4094d94ea9de98c790edb9b7c5d0077095a0087"
+      },
+      {
+        "path": "ipad-air-5-01.heic",
+        "sha256": "7c331207b67f159177675c8b2760ad6035a8dada04c12ed7f878d1c50120a9c7"
+      },
+      {
+        "path": "ipad-air-5-02.heic",
+        "sha256": "8221a26df520b6e571818aeb1608ab7112e170be58cbe362de8ced107000b1eb"
       }
     ]
   },
@@ -114,6 +146,38 @@
         {
           "path": "metadata-uri.avif",
           "payload": "bare-media URI metadata sample"
+        },
+        {
+          "path": "samsung-a32-01.heic",
+          "payload": "SM-A326B"
+        },
+        {
+          "path": "samsung-a32-02.heic",
+          "payload": "SM-A326B"
+        },
+        {
+          "path": "samsung-a32-03.heic",
+          "payload": "SM-A326B"
+        },
+        {
+          "path": "iphone-12-pro-01.heic",
+          "payload": "iPhone 12 Pro"
+        },
+        {
+          "path": "iphone-12-pro-02.heic",
+          "payload": "iPhone 12 Pro"
+        },
+        {
+          "path": "iphone-12-pro-03.heic",
+          "payload": "iPhone 12 Pro"
+        },
+        {
+          "path": "ipad-air-5-01.heic",
+          "payload": "iPad Air (5th generation)"
+        },
+        {
+          "path": "ipad-air-5-02.heic",
+          "payload": "iPad Air (5th generation)"
         }
       ]
     },

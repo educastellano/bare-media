@@ -125,59 +125,59 @@
       "samples": [
         {
           "path": "metadata-exif.heic",
-          "payload": "bare-media sample author"
+          "payloads": ["bare-media sample author"]
         },
         {
           "path": "metadata-exif.avif",
-          "payload": "bare-media sample author"
+          "payloads": ["bare-media sample author"]
         },
         {
           "path": "metadata-xmp.heic",
-          "payload": "bare-media XMP sample"
+          "payloads": ["bare-media XMP sample"]
         },
         {
           "path": "metadata-xmp.avif",
-          "payload": "bare-media XMP sample"
+          "payloads": ["bare-media XMP sample"]
         },
         {
           "path": "metadata-uri.heic",
-          "payload": "bare-media URI metadata sample"
+          "payloads": ["bare-media URI metadata sample"]
         },
         {
           "path": "metadata-uri.avif",
-          "payload": "bare-media URI metadata sample"
+          "payloads": ["bare-media URI metadata sample"]
         },
         {
           "path": "samsung-a32-01.heic",
-          "payload": "SM-A326B"
+          "payloads": ["SM-A326B", "Image_UTC_Data", "MCC_Data"]
         },
         {
           "path": "samsung-a32-02.heic",
-          "payload": "SM-A326B"
+          "payloads": ["SM-A326B", "Image_UTC_Data", "MCC_Data"]
         },
         {
           "path": "samsung-a32-03.heic",
-          "payload": "SM-A326B"
+          "payloads": ["SM-A326B", "Image_UTC_Data", "MCC_Data"]
         },
         {
           "path": "iphone-12-pro-01.heic",
-          "payload": "iPhone 12 Pro"
+          "payloads": ["iPhone 12 Pro"]
         },
         {
           "path": "iphone-12-pro-02.heic",
-          "payload": "iPhone 12 Pro"
+          "payloads": ["iPhone 12 Pro"]
         },
         {
           "path": "iphone-12-pro-03.heic",
-          "payload": "iPhone 12 Pro"
+          "payloads": ["iPhone 12 Pro"]
         },
         {
           "path": "ipad-air-5-01.heic",
-          "payload": "iPad Air (5th generation)"
+          "payloads": ["iPad Air (5th generation)"]
         },
         {
           "path": "ipad-air-5-02.heic",
-          "payload": "iPad Air (5th generation)"
+          "payloads": ["iPad Air (5th generation)"]
         }
       ]
     },

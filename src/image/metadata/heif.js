@@ -2,6 +2,7 @@ import {
   encodeBox,
   encodeBoxLike,
   encodeFullBoxLike,
+  encodeZeroFilledFreeBox,
   parseBoxes,
   parseFullBox,
   readUInt,
@@ -12,6 +13,7 @@ import {
 
 const METADATA_ITEM_TYPES = new Set(['Exif', 'mime', 'uri '])
 const MIME_IMAGE_CONTENT_TYPE = 'image/jpeg'
+const METADATA_BOX_VALIDATORS = new Map([['sefd', validateSamsungBox]])
 
 function readString(buffer, offset, end) {
   const nullIndex = buffer.indexOf(0, offset)
@@ -340,8 +342,14 @@ function overlaps(left, right) {
   return left.start < right.end && right.start < left.end
 }
 
-function localItemRanges(items, removedItemIds, constructionMethod, sourceLength) {
-  const removed = []
+function localItemRanges(
+  items,
+  removedItemIds,
+  constructionMethod,
+  sourceLength,
+  extraRanges = []
+) {
+  const removed = [...extraRanges]
   const retained = []
 
   for (const item of items) {
@@ -383,8 +391,42 @@ function assertRangesAreInBoxes(ranges, boxes) {
   }
 }
 
+function validateSamsungBox(buffer, box) {
+  const invalid = () => {
+    throw new Error('Unsupported Samsung sefd metadata structure')
+  }
+
+  if (box.end - box.dataStart < 20) invalid()
+  if (buffer.toString('latin1', box.end - 4, box.end) !== 'SEFT') invalid()
+
+  const directorySize = buffer.readUInt32LE(box.end - 8)
+  const directoryStart = box.end - 8 - directorySize
+  if (directorySize < 12 || directoryStart < box.dataStart) invalid()
+  if (buffer.toString('latin1', directoryStart, directoryStart + 4) !== 'SEFH') invalid()
+
+  const count = buffer.readUInt32LE(directoryStart + 8)
+  if (12 + count * 12 !== directorySize) invalid()
+
+  for (let i = 0; i < count; i++) {
+    const entry = directoryStart + 12 + i * 12
+    const offset = buffer.readUInt32LE(entry + 4)
+    const size = buffer.readUInt32LE(entry + 8)
+    const start = directoryStart - offset
+
+    if (start < box.dataStart || size < 8 || size > offset) invalid()
+    if (buffer.readUInt32LE(start) !== buffer.readUInt32LE(entry)) invalid()
+    if (buffer.readUInt32LE(start + 4) > size - 8) invalid()
+  }
+}
+
 function stripHEIFMetadata(buffer) {
   const topLevel = parseBoxes(buffer)
+  const metadataBoxes = topLevel.filter((box) => {
+    const validate = METADATA_BOX_VALIDATORS.get(box.type)
+    if (!validate) return false
+    validate(buffer, box)
+    return true
+  })
   const metaBoxes = topLevel.filter((box) => box.type === 'meta')
   if (metaBoxes.length !== 1) throw new Error('Invalid HEIF metadata container')
 
@@ -404,7 +446,7 @@ function stripHEIFMetadata(buffer) {
     }
   }
 
-  if (removedItemIds.size === 0) {
+  if (removedItemIds.size === 0 && metadataBoxes.length === 0) {
     return Buffer.from(buffer)
   }
 
@@ -435,6 +477,17 @@ function stripHEIFMetadata(buffer) {
       throw new Error('Invalid HEIF item data location')
     }
   }
+
+  const metadataRanges = metadataBoxes.map((box) => ({ start: box.start, end: box.end }))
+  const output = zeroRanges(
+    buffer,
+    localItemRanges(itemLocations, removedItemIds, 0, buffer.byteLength, metadataRanges)
+  )
+  for (const box of metadataBoxes) {
+    encodeZeroFilledFreeBox(box).copy(output, box.start)
+  }
+
+  if (removedItemIds.size === 0) return output
 
   const rewrittenChildren = rewriteBoxes(buffer, children, (box) => {
     switch (box.type) {
@@ -470,7 +523,6 @@ function stripHEIFMetadata(buffer) {
   metaPayload = Buffer.concat([metaPayload, free])
   const paddedMeta = encodeBoxLike(meta, metaPayload)
 
-  const output = zeroRanges(buffer, mediaDataRanges)
   paddedMeta.copy(output, meta.start)
   return output
 }

@@ -134,6 +134,13 @@ function encodeFullBoxLike(box, version, flags, payload, opts) {
   return encodeBoxLike(box, fullBox, opts)
 }
 
+function encodeZeroFilledFreeBox(box) {
+  const payloadSize = box.size - box.headerSize
+  const payload = Buffer.alloc(payloadSize)
+
+  return encodeBoxLike({ ...box, type: 'free' }, payload)
+}
+
 function rewriteBoxes(buffer, boxes, transform) {
   const output = []
 
@@ -168,6 +175,7 @@ export {
   encodeBox,
   encodeBoxLike,
   encodeFullBoxLike,
+  encodeZeroFilledFreeBox,
   parseBox,
   parseBoxes,
   parseFullBox,

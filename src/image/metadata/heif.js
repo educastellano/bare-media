@@ -1,12 +1,12 @@
 import {
   encodeBox,
-  encodeBoxLike,
-  encodeFullBoxLike,
-  encodeZeroFilledFreeBox,
+  encodeZeroFilledBox,
   parseBoxes,
   parseFullBox,
   readUInt,
+  rewriteBox,
   rewriteBoxes,
+  rewriteFullBox,
   writeUInt,
   zeroRanges
 } from '../../container/isobmff'
@@ -39,7 +39,7 @@ const SAMSUNG_SIGNATURE = {
 
 const METADATA_ITEM_TYPES = new Set([ITEM_TYPE.EXIF, ITEM_TYPE.MIME, ITEM_TYPE.URI])
 const MIME_IMAGE_CONTENT_TYPE = 'image/jpeg'
-const METADATA_BOX_VALIDATORS = new Map([[BOX_TYPE.SAMSUNG_METADATA, validateSamsungBox]])
+const VENDOR_BOX_VALIDATOR = new Map([[BOX_TYPE.SAMSUNG_METADATA, validateSamsungBox]])
 
 function readString(buffer, offset, end) {
   const nullIndex = buffer.indexOf(0, offset)
@@ -104,17 +104,17 @@ function parseItemInfo(buffer, box) {
   }
 }
 
-function rewriteItemInfo(buffer, box, info, removedItemIds) {
+function rewriteItemInfo(buffer, box, info, metadataItemIds) {
   const entries = info.entries.filter((entry) => {
     const item = itemInfoEntry(buffer, entry)
-    return !item || !removedItemIds.has(item.id)
+    return !item || !metadataItemIds.has(item.id)
   })
 
   const count = readUInt(buffer, info.dataStart, info.countSize)
   const payload = Buffer.allocUnsafe(info.countSize)
   writeUInt(payload, count - (info.entries.length - entries.length), 0, info.countSize)
 
-  return encodeFullBoxLike(
+  return rewriteFullBox(
     box,
     info.version,
     info.flags,
@@ -207,7 +207,7 @@ function rewriteItemLocation(buffer, box, location, items) {
     header,
     ...items.map((item) => buffer.subarray(item.start, item.end))
   ])
-  return encodeFullBoxLike(box, location.version, location.flags, payload, {
+  return rewriteFullBox(box, location.version, location.flags, payload, {
     extendsToEnd: false
   })
 }
@@ -218,7 +218,7 @@ function parsePrimaryItem(buffer, box) {
   return readUInt(buffer, fullBox.dataStart, idSize)
 }
 
-function rewriteItemReferences(buffer, box, removedItemIds) {
+function rewriteItemReferences(buffer, box, metadataItemIds) {
   const fullBox = parseFullBox(buffer, box)
   if (fullBox.version > 1) throw new Error('Unsupported HEIF item reference version')
 
@@ -240,9 +240,9 @@ function rewriteItemReferences(buffer, box, removedItemIds) {
     }
 
     if (offset !== reference.end) throw new Error('Invalid HEIF item reference')
-    if (removedItemIds.has(fromItemId)) continue
+    if (metadataItemIds.has(fromItemId)) continue
 
-    const retainedItemIds = toItemIds.filter((id) => !removedItemIds.has(id))
+    const retainedItemIds = toItemIds.filter((id) => !metadataItemIds.has(id))
     if (retainedItemIds.length === 0) continue
 
     const payload = Buffer.allocUnsafe(idSize + 2 + retainedItemIds.length * idSize)
@@ -256,15 +256,15 @@ function rewriteItemReferences(buffer, box, removedItemIds) {
       offset += idSize
     }
 
-    rewritten.push(encodeBoxLike(reference, payload))
+    rewritten.push(rewriteBox(reference, payload))
   }
 
-  return encodeFullBoxLike(box, fullBox.version, fullBox.flags, Buffer.concat(rewritten), {
+  return rewriteFullBox(box, fullBox.version, fullBox.flags, Buffer.concat(rewritten), {
     extendsToEnd: false
   })
 }
 
-function rewritePropertyAssociations(buffer, box, removedItemIds) {
+function rewritePropertyAssociations(buffer, box, metadataItemIds) {
   const fullBox = parseFullBox(buffer, box)
   if (fullBox.version > 1) throw new Error('Unsupported HEIF property association version')
 
@@ -282,24 +282,24 @@ function rewritePropertyAssociations(buffer, box, removedItemIds) {
     const associationCount = readUInt(buffer, offset, 1)
     offset += 1 + associationCount * associationSize
     if (offset > box.end) throw new Error('Invalid HEIF property association box')
-    if (!removedItemIds.has(itemId)) entries.push(buffer.subarray(start, offset))
+    if (!metadataItemIds.has(itemId)) entries.push(buffer.subarray(start, offset))
   }
 
   if (offset !== box.end) throw new Error('Invalid HEIF property association box')
 
   const count = Buffer.allocUnsafe(4)
   writeUInt(count, entries.length, 0, 4)
-  return encodeFullBoxLike(box, fullBox.version, fullBox.flags, Buffer.concat([count, ...entries]))
+  return rewriteFullBox(box, fullBox.version, fullBox.flags, Buffer.concat([count, ...entries]))
 }
 
-function rewriteItemProperties(buffer, box, removedItemIds) {
+function rewriteItemProperties(buffer, box, metadataItemIds) {
   const children = parseBoxes(buffer, box.dataStart, box.end)
   const payload = rewriteBoxes(buffer, children, (child) => {
     if (child.type === BOX_TYPE.PROPERTY_ASSOCIATION) {
-      return rewritePropertyAssociations(buffer, child, removedItemIds)
+      return rewritePropertyAssociations(buffer, child, metadataItemIds)
     }
   })
-  return encodeBoxLike(box, payload, { extendsToEnd: false })
+  return rewriteBox(box, payload, { extendsToEnd: false })
 }
 
 function mergeRanges(ranges) {
@@ -324,7 +324,7 @@ function overlaps(left, right) {
 
 function localItemRanges(
   items,
-  removedItemIds,
+  metadataItemIds,
   constructionMethod,
   sourceLength,
   extraRanges = []
@@ -349,7 +349,8 @@ function localItemRanges(
         start: item.baseOffset + extent.offset,
         end: item.baseOffset + extent.offset + (extent.length || sourceLength)
       }
-      ;(removedItemIds.has(item.id) ? removed : retained).push(range)
+      const ranges = metadataItemIds.has(item.id) ? removed : retained
+      ranges.push(range)
     }
   }
 
@@ -400,91 +401,100 @@ function validateSamsungBox(buffer, box) {
   }
 }
 
-function stripHEIFMetadata(buffer) {
+function parseMetaContainer(buffer) {
+  let meta = null
+  const vendorBoxes = []
   const topLevel = parseBoxes(buffer)
-  const metadataBoxes = topLevel.filter((box) => {
-    const validate = METADATA_BOX_VALIDATORS.get(box.type)
-    if (!validate) return false
-    validate(buffer, box)
-    return true
-  })
-  const metaBoxes = topLevel.filter((box) => box.type === BOX_TYPE.META)
-  if (metaBoxes.length !== 1) throw new Error('Invalid HEIF metadata container')
 
-  const meta = metaBoxes[0]
+  for (const box of topLevel) {
+    if (box.type === BOX_TYPE.META) {
+      if (meta) throw new Error('Invalid HEIF metadata container')
+      meta = box
+    } else if (VENDOR_BOX_VALIDATOR.has(box.type)) {
+      VENDOR_BOX_VALIDATOR.get(box.type)(buffer, box)
+      vendorBoxes.push(box)
+    }
+  }
+
+  if (!meta) throw new Error('Invalid HEIF metadata container')
+
   const metaFullBox = parseFullBox(buffer, meta)
   const children = parseBoxes(buffer, metaFullBox.dataStart, meta.end)
+
   const itemInfoBox = children.find((box) => box.type === BOX_TYPE.ITEM_INFO)
   if (!itemInfoBox) throw new Error('Invalid HEIF item information')
 
   const itemInfo = parseItemInfo(buffer, itemInfoBox)
-  const removedItemIds = new Set()
+
+  return {
+    topLevel,
+    meta,
+    metaFullBox,
+    vendorBoxes,
+    children,
+    itemInfo
+  }
+}
+
+function collectMetadataItemIds(buffer, itemInfo) {
+  const metadataItemIds = new Set()
 
   for (const entry of itemInfo.entries) {
     const item = itemInfoEntry(buffer, entry)
     if (item && isMetadataItem(item)) {
-      removedItemIds.add(item.id)
+      metadataItemIds.add(item.id)
     }
   }
 
-  if (removedItemIds.size === 0 && metadataBoxes.length === 0) {
-    return Buffer.from(buffer)
-  }
+  return metadataItemIds
+}
 
-  const primaryItemBox = children.find((box) => box.type === BOX_TYPE.PRIMARY_ITEM)
-  if (primaryItemBox && removedItemIds.has(parsePrimaryItem(buffer, primaryItemBox))) {
-    throw new Error('Cannot remove the primary HEIF item')
-  }
+function resolveMetadataRanges(buffer, container, itemLocations, metadataItemIds) {
+  const { topLevel, vendorBoxes, children } = container
 
-  const itemLocationBox = children.find((box) => box.type === BOX_TYPE.ITEM_LOCATION)
-  const itemLocation = itemLocationBox ? parseItemLocation(buffer, itemLocationBox) : null
-  const itemLocations = itemLocation ? itemLocation.items : []
-  const retainedItemLocations = itemLocations.filter((item) => !removedItemIds.has(item.id))
+  const mdatBoxes = topLevel.filter((box) => box.type === BOX_TYPE.MEDIA_DATA)
+  const vendorMetadataRanges = vendorBoxes.map((box) => ({ start: box.start, end: box.end }))
+  const mdatMetadataRanges = localItemRanges(itemLocations, metadataItemIds, 0, buffer.byteLength)
+  localItemRanges(itemLocations, metadataItemIds, 0, buffer.byteLength, vendorMetadataRanges)
+  assertRangesAreInBoxes(mdatMetadataRanges, mdatBoxes)
 
-  const mediaDataBoxes = topLevel.filter((box) => box.type === BOX_TYPE.MEDIA_DATA)
-  const mediaDataRanges = localItemRanges(itemLocations, removedItemIds, 0, buffer.byteLength)
-  assertRangesAreInBoxes(mediaDataRanges, mediaDataBoxes)
+  const idatBoxes = children.filter((box) => box.type === BOX_TYPE.ITEM_DATA)
+  const idatPayloadLength =
+    idatBoxes.length === 1 ? idatBoxes[0].end - idatBoxes[0].dataStart : null
+  const idatMetadataRanges = localItemRanges(itemLocations, metadataItemIds, 1, idatPayloadLength)
 
-  const itemDataBoxes = children.filter((box) => box.type === BOX_TYPE.ITEM_DATA)
-  const itemDataLength =
-    itemDataBoxes.length === 1 ? itemDataBoxes[0].end - itemDataBoxes[0].dataStart : null
-  const itemDataRanges = localItemRanges(itemLocations, removedItemIds, 1, itemDataLength)
-  if (itemDataRanges.length > 0 && itemDataBoxes.length !== 1) {
+  if (idatMetadataRanges.length > 0 && idatBoxes.length !== 1) {
     throw new Error('Invalid HEIF item data storage')
   }
 
-  if (itemDataRanges.some((range) => range.start < 0 || range.end > itemDataLength)) {
+  if (idatMetadataRanges.some((range) => range.start < 0 || range.end > idatPayloadLength)) {
     throw new Error('Invalid HEIF item data location')
   }
 
-  const metadataRanges = metadataBoxes.map((box) => ({ start: box.start, end: box.end }))
-  const output = zeroRanges(
-    buffer,
-    localItemRanges(itemLocations, removedItemIds, 0, buffer.byteLength, metadataRanges)
-  )
-  for (const box of metadataBoxes) {
-    encodeZeroFilledFreeBox(box).copy(output, box.start)
-  }
+  return { mdatMetadataRanges, idatMetadataRanges, vendorMetadataRanges }
+}
 
-  if (removedItemIds.size === 0) return output
+function rewriteMetaBox(buffer, container, rewrites) {
+  const { meta, metaFullBox, children, itemInfo } = container
+  const { itemLocation, retainedItemLocations, metadataItemIds, idatMetadataRanges } = rewrites
 
   const rewrittenChildren = rewriteBoxes(buffer, children, (box) => {
     switch (box.type) {
       case BOX_TYPE.ITEM_INFO:
-        return rewriteItemInfo(buffer, box, itemInfo, removedItemIds)
+        return rewriteItemInfo(buffer, box, itemInfo, metadataItemIds)
       case BOX_TYPE.ITEM_LOCATION:
         return rewriteItemLocation(buffer, box, itemLocation, retainedItemLocations)
       case BOX_TYPE.ITEM_REFERENCE:
-        return rewriteItemReferences(buffer, box, removedItemIds)
+        return rewriteItemReferences(buffer, box, metadataItemIds)
       case BOX_TYPE.ITEM_PROPERTIES:
-        return rewriteItemProperties(buffer, box, removedItemIds)
+        return rewriteItemProperties(buffer, box, metadataItemIds)
       case BOX_TYPE.ITEM_DATA: {
         const payload = buffer.subarray(box.dataStart, box.end)
-        return encodeBoxLike(box, zeroRanges(payload, itemDataRanges), { extendsToEnd: false })
+        return rewriteBox(box, zeroRanges(payload, idatMetadataRanges), { extendsToEnd: false })
       }
       default:
         return box.extendsToEnd
-          ? encodeBoxLike(box, buffer.subarray(box.dataStart, box.end), { extendsToEnd: false })
+          ? rewriteBox(box, buffer.subarray(box.dataStart, box.end), { extendsToEnd: false })
           : undefined
     }
   })
@@ -493,12 +503,53 @@ function stripHEIFMetadata(buffer) {
   if (padding < 8) throw new Error('Cannot preserve the HEIF metadata box size')
 
   const free = encodeBox(BOX_TYPE.FREE, Buffer.alloc(padding - 8))
-  const paddedMeta = encodeFullBoxLike(
+  return rewriteFullBox(
     meta,
     metaFullBox.version,
     metaFullBox.flags,
     Buffer.concat([rewrittenChildren, free])
   )
+}
+
+function stripHEIFMetadata(buffer) {
+  const container = parseMetaContainer(buffer)
+  const { vendorBoxes, meta, children, itemInfo } = container
+
+  const metadataItemIds = collectMetadataItemIds(buffer, itemInfo)
+  if (metadataItemIds.size === 0 && vendorBoxes.length === 0) {
+    return Buffer.from(buffer)
+  }
+
+  const primaryItemBox = children.find((box) => box.type === BOX_TYPE.PRIMARY_ITEM)
+  if (primaryItemBox && metadataItemIds.has(parsePrimaryItem(buffer, primaryItemBox))) {
+    throw new Error('Cannot remove the primary HEIF item')
+  }
+
+  const itemLocationBox = children.find((box) => box.type === BOX_TYPE.ITEM_LOCATION)
+  const itemLocation = itemLocationBox ? parseItemLocation(buffer, itemLocationBox) : null
+  const itemLocations = itemLocation ? itemLocation.items : []
+
+  const { mdatMetadataRanges, idatMetadataRanges, vendorMetadataRanges } = resolveMetadataRanges(
+    buffer,
+    container,
+    itemLocations,
+    metadataItemIds
+  )
+
+  const fileMetadataRanges = mergeRanges([...mdatMetadataRanges, ...vendorMetadataRanges])
+  const output = zeroRanges(buffer, fileMetadataRanges)
+  for (const box of vendorBoxes) {
+    encodeZeroFilledBox(box, BOX_TYPE.FREE).copy(output, box.start)
+  }
+
+  if (metadataItemIds.size === 0) return output
+
+  const paddedMeta = rewriteMetaBox(buffer, container, {
+    itemLocation,
+    retainedItemLocations: itemLocations.filter((item) => !metadataItemIds.has(item.id)),
+    metadataItemIds,
+    idatMetadataRanges
+  })
 
   paddedMeta.copy(output, meta.start)
   return output

@@ -119,26 +119,26 @@ function encodeBox(type, payload, opts = {}) {
   return result
 }
 
-function encodeBoxLike(box, payload, opts = {}) {
+function rewriteBox(box, payload, opts = {}) {
   return encodeBox(box.type, payload, {
     extended: box.headerSize === EXTENDED_BOX_HEADER_SIZE,
     extendsToEnd: opts.extendsToEnd ?? box.extendsToEnd
   })
 }
 
-function encodeFullBoxLike(box, version, flags, payload, opts) {
+function rewriteFullBox(box, version, flags, payload, opts) {
   const fullBox = Buffer.allocUnsafe(4 + payload.byteLength)
   fullBox[0] = version
   writeUInt(fullBox, flags, 1, 3)
   payload.copy(fullBox, 4)
-  return encodeBoxLike(box, fullBox, opts)
+  return rewriteBox(box, fullBox, opts)
 }
 
-function encodeZeroFilledFreeBox(box) {
+function encodeZeroFilledBox(box, type) {
   const payloadSize = box.size - box.headerSize
   const payload = Buffer.alloc(payloadSize)
 
-  return encodeBoxLike({ ...box, type: 'free' }, payload)
+  return rewriteBox({ ...box, type }, payload)
 }
 
 function rewriteBoxes(buffer, boxes, transform) {
@@ -173,14 +173,14 @@ function zeroRanges(buffer, ranges) {
 
 export {
   encodeBox,
-  encodeBoxLike,
-  encodeFullBoxLike,
-  encodeZeroFilledFreeBox,
+  encodeZeroFilledBox,
   parseBox,
   parseBoxes,
   parseFullBox,
   readUInt,
+  rewriteBox,
   rewriteBoxes,
+  rewriteFullBox,
   writeUInt,
   zeroRanges
 }

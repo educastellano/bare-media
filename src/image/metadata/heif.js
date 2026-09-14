@@ -1,10 +1,10 @@
 import {
   encodeBox,
-  encodeZeroFilledBox,
   parseBoxes,
   parseFullBox,
   readUInt,
   rewriteBox,
+  rewriteAsZeroFilledBox,
   rewriteBoxes,
   rewriteFullBox,
   writeUInt,
@@ -39,7 +39,7 @@ const SAMSUNG_SIGNATURE = {
 
 const METADATA_ITEM_TYPES = new Set([ITEM_TYPE.EXIF, ITEM_TYPE.MIME, ITEM_TYPE.URI])
 const MIME_IMAGE_CONTENT_TYPE = 'image/jpeg'
-const VENDOR_BOX_VALIDATOR = new Map([[BOX_TYPE.SAMSUNG_METADATA, validateSamsungBox]])
+const VENDOR_BOX_VALIDATORS = new Map([[BOX_TYPE.SAMSUNG_METADATA, validateSamsungBox]])
 
 function readString(buffer, offset, end) {
   const nullIndex = buffer.indexOf(0, offset)
@@ -322,7 +322,7 @@ function overlaps(left, right) {
   return left.start < right.end && right.start < left.end
 }
 
-function localItemRanges(
+function metadataItemRanges(
   items,
   metadataItemIds,
   constructionMethod,
@@ -362,6 +362,10 @@ function localItemRanges(
   }
 
   return removedRanges
+}
+
+function assertNoMetadataOverlap(items, metadataItemIds, constructionMethod, sourceLength, ranges) {
+  metadataItemRanges(items, metadataItemIds, constructionMethod, sourceLength, ranges)
 }
 
 function assertRangesAreInBoxes(ranges, boxes) {
@@ -410,8 +414,8 @@ function parseMetaContainer(buffer) {
     if (box.type === BOX_TYPE.META) {
       if (meta) throw new Error('Invalid HEIF metadata container')
       meta = box
-    } else if (VENDOR_BOX_VALIDATOR.has(box.type)) {
-      VENDOR_BOX_VALIDATOR.get(box.type)(buffer, box)
+    } else if (VENDOR_BOX_VALIDATORS.has(box.type)) {
+      VENDOR_BOX_VALIDATORS.get(box.type)(buffer, box)
       vendorBoxes.push(box)
     }
   }
@@ -454,14 +458,30 @@ function resolveMetadataRanges(buffer, container, itemLocations, metadataItemIds
 
   const mdatBoxes = topLevel.filter((box) => box.type === BOX_TYPE.MEDIA_DATA)
   const vendorMetadataRanges = vendorBoxes.map((box) => ({ start: box.start, end: box.end }))
-  const mdatMetadataRanges = localItemRanges(itemLocations, metadataItemIds, 0, buffer.byteLength)
-  localItemRanges(itemLocations, metadataItemIds, 0, buffer.byteLength, vendorMetadataRanges)
+  const mdatMetadataRanges = metadataItemRanges(
+    itemLocations,
+    metadataItemIds,
+    0,
+    buffer.byteLength
+  )
+  assertNoMetadataOverlap(
+    itemLocations,
+    metadataItemIds,
+    0,
+    buffer.byteLength,
+    vendorMetadataRanges
+  )
   assertRangesAreInBoxes(mdatMetadataRanges, mdatBoxes)
 
   const idatBoxes = children.filter((box) => box.type === BOX_TYPE.ITEM_DATA)
   const idatPayloadLength =
     idatBoxes.length === 1 ? idatBoxes[0].end - idatBoxes[0].dataStart : null
-  const idatMetadataRanges = localItemRanges(itemLocations, metadataItemIds, 1, idatPayloadLength)
+  const idatMetadataRanges = metadataItemRanges(
+    itemLocations,
+    metadataItemIds,
+    1,
+    idatPayloadLength
+  )
 
   if (idatMetadataRanges.length > 0 && idatBoxes.length !== 1) {
     throw new Error('Invalid HEIF item data storage')
@@ -476,7 +496,10 @@ function resolveMetadataRanges(buffer, container, itemLocations, metadataItemIds
 
 function rewriteMetaBox(buffer, container, rewrites) {
   const { meta, metaFullBox, children, itemInfo } = container
-  const { itemLocation, retainedItemLocations, metadataItemIds, idatMetadataRanges } = rewrites
+  const { itemLocation, metadataItemIds, idatMetadataRanges } = rewrites
+  const retainedItemLocations = (itemLocation?.items ?? []).filter(
+    (item) => !metadataItemIds.has(item.id)
+  )
 
   const rewrittenChildren = rewriteBoxes(buffer, children, (box) => {
     switch (box.type) {
@@ -539,14 +562,13 @@ function stripHEIFMetadata(buffer) {
   const fileMetadataRanges = mergeRanges([...mdatMetadataRanges, ...vendorMetadataRanges])
   const output = zeroRanges(buffer, fileMetadataRanges)
   for (const box of vendorBoxes) {
-    encodeZeroFilledBox(box, BOX_TYPE.FREE).copy(output, box.start)
+    rewriteAsZeroFilledBox(box, BOX_TYPE.FREE).copy(output, box.start)
   }
 
   if (metadataItemIds.size === 0) return output
 
   const paddedMeta = rewriteMetaBox(buffer, container, {
     itemLocation,
-    retainedItemLocations: itemLocations.filter((item) => !metadataItemIds.has(item.id)),
     metadataItemIds,
     idatMetadataRanges
   })

@@ -134,7 +134,7 @@ function rewriteFullBox(box, version, flags, payload, opts) {
   return rewriteBox(box, fullBox, opts)
 }
 
-function encodeZeroFilledBox(box, type) {
+function rewriteAsZeroFilledBox(box, type) {
   const payloadSize = box.size - box.headerSize
   const payload = Buffer.alloc(payloadSize)
 
@@ -173,12 +173,12 @@ function zeroRanges(buffer, ranges) {
 
 export {
   encodeBox,
-  encodeZeroFilledBox,
   parseBox,
   parseBoxes,
   parseFullBox,
   readUInt,
   rewriteBox,
+  rewriteAsZeroFilledBox,
   rewriteBoxes,
   rewriteFullBox,
   writeUInt,

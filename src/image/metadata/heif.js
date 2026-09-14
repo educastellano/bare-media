@@ -118,6 +118,7 @@ function parseItemLocation(buffer, box) {
   const items = []
 
   for (let i = 0; i < itemCount; i++) {
+    const start = offset
     const id = readUInt(buffer, offset, itemIdSize)
     offset += itemIdSize
 
@@ -136,9 +137,8 @@ function parseItemLocation(buffer, box) {
 
     const extents = []
     for (let j = 0; j < extentCount; j++) {
-      let index = 0
       if (fullBox.version > 0 && indexSize > 0) {
-        index = readUInt(buffer, offset, indexSize)
+        readUInt(buffer, offset, indexSize)
         offset += indexSize
       }
 
@@ -146,14 +146,15 @@ function parseItemLocation(buffer, box) {
       offset += offsetSize
       const length = readUInt(buffer, offset, lengthSize)
       offset += lengthSize
-      extents.push({ index, offset: extentOffset, length })
+      extents.push({ offset: extentOffset, length })
     }
 
     if (offset > box.end) throw new Error('Invalid HEIF item location box')
 
     items.push({
       id,
-      constructionField,
+      start,
+      end: offset,
       constructionMethod: constructionField & 0x0f,
       dataReferenceIndex,
       baseOffset,
@@ -165,68 +166,21 @@ function parseItemLocation(buffer, box) {
 
   return {
     ...fullBox,
-    offsetSize,
-    lengthSize,
-    baseOffsetSize,
-    indexSize,
-    itemIdSize,
     itemCountSize,
     items
   }
 }
 
-function itemLocationPayloadSize(location, items) {
-  let size = 2 + location.itemCountSize
+function rewriteItemLocation(buffer, box, location, items) {
+  const header = Buffer.from(
+    buffer.subarray(location.dataStart, location.dataStart + 2 + location.itemCountSize)
+  )
+  writeUInt(header, items.length, 2, location.itemCountSize)
 
-  for (const item of items) {
-    size += location.itemIdSize
-    if (location.version > 0) size += 2
-    size += 2 + location.baseOffsetSize + 2
-    size += item.extents.length * (location.indexSize + location.offsetSize + location.lengthSize)
-  }
-
-  return size
-}
-
-function rewriteItemLocation(box, location, items) {
-  const payload = Buffer.allocUnsafe(itemLocationPayloadSize(location, items))
-  let offset = 0
-
-  payload[offset++] = (location.offsetSize << 4) | location.lengthSize
-  payload[offset++] =
-    (location.baseOffsetSize << 4) | (location.version > 0 ? location.indexSize : 0)
-  writeUInt(payload, items.length, offset, location.itemCountSize)
-  offset += location.itemCountSize
-
-  for (const item of items) {
-    writeUInt(payload, item.id, offset, location.itemIdSize)
-    offset += location.itemIdSize
-
-    if (location.version > 0) {
-      writeUInt(payload, item.constructionField, offset, 2)
-      offset += 2
-    }
-
-    writeUInt(payload, item.dataReferenceIndex, offset, 2)
-    offset += 2
-    writeUInt(payload, item.baseOffset, offset, location.baseOffsetSize)
-    offset += location.baseOffsetSize
-    writeUInt(payload, item.extents.length, offset, 2)
-    offset += 2
-
-    for (const extent of item.extents) {
-      if (location.version > 0 && location.indexSize > 0) {
-        writeUInt(payload, extent.index, offset, location.indexSize)
-        offset += location.indexSize
-      }
-
-      writeUInt(payload, extent.offset, offset, location.offsetSize)
-      offset += location.offsetSize
-      writeUInt(payload, extent.length, offset, location.lengthSize)
-      offset += location.lengthSize
-    }
-  }
-
+  const payload = Buffer.concat([
+    header,
+    ...items.map((item) => buffer.subarray(item.start, item.end))
+  ])
   return encodeFullBoxLike(box, location.version, location.flags, payload, {
     extendsToEnd: false
   })
@@ -472,10 +426,8 @@ function stripHEIFMetadata(buffer) {
     throw new Error('Invalid HEIF item data storage')
   }
 
-  if (itemDataRanges.length > 0) {
-    if (itemDataRanges.some((range) => range.start < 0 || range.end > itemDataLength)) {
-      throw new Error('Invalid HEIF item data location')
-    }
+  if (itemDataRanges.some((range) => range.start < 0 || range.end > itemDataLength)) {
+    throw new Error('Invalid HEIF item data location')
   }
 
   const metadataRanges = metadataBoxes.map((box) => ({ start: box.start, end: box.end }))
@@ -494,7 +446,7 @@ function stripHEIFMetadata(buffer) {
       case 'iinf':
         return rewriteItemInfo(buffer, box, itemInfo, removedItemIds)
       case 'iloc':
-        return rewriteItemLocation(box, itemLocation, retainedItemLocations)
+        return rewriteItemLocation(buffer, box, itemLocation, retainedItemLocations)
       case 'iref':
         return rewriteItemReferences(buffer, box, removedItemIds)
       case 'iprp':
@@ -510,18 +462,16 @@ function stripHEIFMetadata(buffer) {
     }
   })
 
-  let metaPayload = Buffer.allocUnsafe(4 + rewrittenChildren.byteLength)
-  metaPayload[0] = metaFullBox.version
-  writeUInt(metaPayload, metaFullBox.flags, 1, 3)
-  rewrittenChildren.copy(metaPayload, 4)
-
-  const rewrittenMeta = encodeBoxLike(meta, metaPayload)
-  const padding = meta.size - rewrittenMeta.byteLength
+  const padding = meta.size - meta.headerSize - 4 - rewrittenChildren.byteLength
   if (padding < 8) throw new Error('Cannot preserve the HEIF metadata box size')
 
   const free = encodeBox('free', Buffer.alloc(padding - 8))
-  metaPayload = Buffer.concat([metaPayload, free])
-  const paddedMeta = encodeBoxLike(meta, metaPayload)
+  const paddedMeta = encodeFullBoxLike(
+    meta,
+    metaFullBox.version,
+    metaFullBox.flags,
+    Buffer.concat([rewrittenChildren, free])
+  )
 
   paddedMeta.copy(output, meta.start)
   return output

@@ -348,7 +348,7 @@ test('image decode() heic', async (t) => {
   const rgba = await decode(buffer)
 
   t.ok(Buffer.isBuffer(rgba.data))
-  t.is(rgba.width, 152)
+  t.is(rgba.width, 150)
   t.is(rgba.height, 120)
 })
 

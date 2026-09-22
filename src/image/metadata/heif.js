@@ -37,6 +37,36 @@ const SAMSUNG_SIGNATURE = {
   DIRECTORY: 'SEFH'
 }
 
+const UINT8_BYTES = 1
+const UINT16_BYTES = 2
+const UINT32_BYTES = 4
+
+const ITEM_INFO_VERSION_WITH_SHORT_ID = 2
+const ITEM_INFO_VERSION_WITH_LONG_ID = 3
+const ITEM_LOCATION_VERSION_WITH_LONG_ID = 2
+const MAX_ITEM_REFERENCE_VERSION = 1
+const MAX_PROPERTY_ASSOCIATION_VERSION = 1
+const LARGE_PROPERTY_INDEX_FLAG = 1
+
+const ITEM_TYPE_BYTES = 4
+const ITEM_LOCATION_SIZE_BYTES = 2
+const FULL_BOX_FIELDS_BYTES = 4
+const FREE_BOX_HEADER_BYTES = 8
+
+const SIZE_NIBBLE_SHIFT = 4
+const SIZE_NIBBLE_MASK = 0x0f
+const CONSTRUCTION_METHOD_MASK = 0x0f
+const MAX_CONSTRUCTION_METHOD = 2
+const FILE_OFFSET_CONSTRUCTION_METHOD = 0
+const ITEM_DATA_CONSTRUCTION_METHOD = 1
+
+const SAMSUNG_FOOTER_BYTES = 8
+const SAMSUNG_SIGNATURE_BYTES = 4
+const SAMSUNG_DIRECTORY_COUNT_OFFSET = 8
+const SAMSUNG_DIRECTORY_HEADER_BYTES = 12
+const SAMSUNG_DIRECTORY_ENTRY_BYTES = 12
+const SAMSUNG_ITEM_HEADER_BYTES = 8
+
 const METADATA_ITEM_TYPES = new Set([ITEM_TYPE.EXIF, ITEM_TYPE.MIME, ITEM_TYPE.URI])
 const MIME_IMAGE_CONTENT_TYPE = 'image/jpeg'
 const VENDOR_BOX_VALIDATORS = new Map([[BOX_TYPE.SAMSUNG_METADATA, validateSamsungBox]])
@@ -57,17 +87,22 @@ function itemInfoEntry(buffer, box) {
   if (box.type !== BOX_TYPE.ITEM_INFO_ENTRY) return null
 
   const fullBox = parseFullBox(buffer, box)
-  if (fullBox.version !== 2 && fullBox.version !== 3) return null
+  if (
+    fullBox.version !== ITEM_INFO_VERSION_WITH_SHORT_ID &&
+    fullBox.version !== ITEM_INFO_VERSION_WITH_LONG_ID
+  ) {
+    return null
+  }
 
-  const idSize = fullBox.version === 2 ? 2 : 4
-  const typeOffset = fullBox.dataStart + idSize + 2
+  const idSize = fullBox.version === ITEM_INFO_VERSION_WITH_SHORT_ID ? UINT16_BYTES : UINT32_BYTES
+  const typeOffset = fullBox.dataStart + idSize + UINT16_BYTES
 
-  if (typeOffset + 4 > box.end) {
+  if (typeOffset + ITEM_TYPE_BYTES > box.end) {
     throw new Error('Invalid HEIF item information entry')
   }
 
-  const type = buffer.toString('latin1', typeOffset, typeOffset + 4)
-  const name = readString(buffer, typeOffset + 4, box.end)
+  const type = buffer.toString('latin1', typeOffset, typeOffset + ITEM_TYPE_BYTES)
+  const name = readString(buffer, typeOffset + ITEM_TYPE_BYTES, box.end)
 
   let contentType = null
   if (type === ITEM_TYPE.MIME) {
@@ -90,7 +125,7 @@ function isMetadataItem(item) {
 
 function parseItemInfo(buffer, box) {
   const fullBox = parseFullBox(buffer, box)
-  const countSize = fullBox.version === 0 ? 2 : 4
+  const countSize = fullBox.version === 0 ? UINT16_BYTES : UINT32_BYTES
   const entriesStart = fullBox.dataStart + countSize
 
   if (entriesStart > box.end) {
@@ -125,19 +160,25 @@ function rewriteItemInfo(buffer, box, info, metadataItemIds) {
 
 function parseItemLocation(buffer, box) {
   const fullBox = parseFullBox(buffer, box)
-  if (fullBox.version > 2) throw new Error('Unsupported HEIF item location version')
+  if (fullBox.version > ITEM_LOCATION_VERSION_WITH_LONG_ID) {
+    throw new Error('Unsupported HEIF item location version')
+  }
 
   let offset = fullBox.dataStart
-  if (offset + 2 > box.end) throw new Error('Invalid HEIF item location box')
+  if (offset + ITEM_LOCATION_SIZE_BYTES > box.end) {
+    throw new Error('Invalid HEIF item location box')
+  }
 
   const sizes = buffer[offset++]
   const sizes2 = buffer[offset++]
-  const offsetSize = sizes >> 4
-  const lengthSize = sizes & 0x0f
-  const baseOffsetSize = sizes2 >> 4
-  const indexSize = fullBox.version > 0 ? sizes2 & 0x0f : 0
-  const itemIdSize = fullBox.version < 2 ? 2 : 4
-  const itemCountSize = fullBox.version < 2 ? 2 : 4
+  const offsetSize = sizes >> SIZE_NIBBLE_SHIFT
+  const lengthSize = sizes & SIZE_NIBBLE_MASK
+  const baseOffsetSize = sizes2 >> SIZE_NIBBLE_SHIFT
+  const indexSize = fullBox.version > 0 ? sizes2 & SIZE_NIBBLE_MASK : 0
+  const itemIdSize =
+    fullBox.version < ITEM_LOCATION_VERSION_WITH_LONG_ID ? UINT16_BYTES : UINT32_BYTES
+  const itemCountSize =
+    fullBox.version < ITEM_LOCATION_VERSION_WITH_LONG_ID ? UINT16_BYTES : UINT32_BYTES
   const itemCount = readUInt(buffer, offset, itemCountSize)
   offset += itemCountSize
 
@@ -150,16 +191,16 @@ function parseItemLocation(buffer, box) {
 
     let constructionField = 0
     if (fullBox.version > 0) {
-      constructionField = readUInt(buffer, offset, 2)
-      offset += 2
+      constructionField = readUInt(buffer, offset, UINT16_BYTES)
+      offset += UINT16_BYTES
     }
 
-    const dataReferenceIndex = readUInt(buffer, offset, 2)
-    offset += 2
+    const dataReferenceIndex = readUInt(buffer, offset, UINT16_BYTES)
+    offset += UINT16_BYTES
     const baseOffset = readUInt(buffer, offset, baseOffsetSize)
     offset += baseOffsetSize
-    const extentCount = readUInt(buffer, offset, 2)
-    offset += 2
+    const extentCount = readUInt(buffer, offset, UINT16_BYTES)
+    offset += UINT16_BYTES
 
     const extents = []
     for (let j = 0; j < extentCount; j++) {
@@ -181,7 +222,7 @@ function parseItemLocation(buffer, box) {
       id,
       start,
       end: offset,
-      constructionMethod: constructionField & 0x0f,
+      constructionMethod: constructionField & CONSTRUCTION_METHOD_MASK,
       dataReferenceIndex,
       baseOffset,
       extents
@@ -199,9 +240,12 @@ function parseItemLocation(buffer, box) {
 
 function rewriteItemLocation(buffer, box, location, items) {
   const header = Buffer.from(
-    buffer.subarray(location.dataStart, location.dataStart + 2 + location.itemCountSize)
+    buffer.subarray(
+      location.dataStart,
+      location.dataStart + ITEM_LOCATION_SIZE_BYTES + location.itemCountSize
+    )
   )
-  writeUInt(header, items.length, 2, location.itemCountSize)
+  writeUInt(header, items.length, ITEM_LOCATION_SIZE_BYTES, location.itemCountSize)
 
   const payload = Buffer.concat([
     header,
@@ -214,15 +258,17 @@ function rewriteItemLocation(buffer, box, location, items) {
 
 function parsePrimaryItem(buffer, box) {
   const fullBox = parseFullBox(buffer, box)
-  const idSize = fullBox.version === 0 ? 2 : 4
+  const idSize = fullBox.version === 0 ? UINT16_BYTES : UINT32_BYTES
   return readUInt(buffer, fullBox.dataStart, idSize)
 }
 
 function rewriteItemReferences(buffer, box, metadataItemIds) {
   const fullBox = parseFullBox(buffer, box)
-  if (fullBox.version > 1) throw new Error('Unsupported HEIF item reference version')
+  if (fullBox.version > MAX_ITEM_REFERENCE_VERSION) {
+    throw new Error('Unsupported HEIF item reference version')
+  }
 
-  const idSize = fullBox.version === 0 ? 2 : 4
+  const idSize = fullBox.version === 0 ? UINT16_BYTES : UINT32_BYTES
   const references = parseBoxes(buffer, fullBox.dataStart, box.end)
   const rewritten = []
 
@@ -230,8 +276,8 @@ function rewriteItemReferences(buffer, box, metadataItemIds) {
     let offset = reference.dataStart
     const fromItemId = readUInt(buffer, offset, idSize)
     offset += idSize
-    const referenceCount = readUInt(buffer, offset, 2)
-    offset += 2
+    const referenceCount = readUInt(buffer, offset, UINT16_BYTES)
+    offset += UINT16_BYTES
 
     const toItemIds = []
     for (let i = 0; i < referenceCount; i++) {
@@ -245,12 +291,12 @@ function rewriteItemReferences(buffer, box, metadataItemIds) {
     const retainedItemIds = toItemIds.filter((id) => !metadataItemIds.has(id))
     if (retainedItemIds.length === 0) continue
 
-    const payload = Buffer.allocUnsafe(idSize + 2 + retainedItemIds.length * idSize)
+    const payload = Buffer.allocUnsafe(idSize + UINT16_BYTES + retainedItemIds.length * idSize)
     offset = 0
     writeUInt(payload, fromItemId, offset, idSize)
     offset += idSize
-    writeUInt(payload, retainedItemIds.length, offset, 2)
-    offset += 2
+    writeUInt(payload, retainedItemIds.length, offset, UINT16_BYTES)
+    offset += UINT16_BYTES
     for (const id of retainedItemIds) {
       writeUInt(payload, id, offset, idSize)
       offset += idSize
@@ -266,29 +312,31 @@ function rewriteItemReferences(buffer, box, metadataItemIds) {
 
 function rewritePropertyAssociations(buffer, box, metadataItemIds) {
   const fullBox = parseFullBox(buffer, box)
-  if (fullBox.version > 1) throw new Error('Unsupported HEIF property association version')
+  if (fullBox.version > MAX_PROPERTY_ASSOCIATION_VERSION) {
+    throw new Error('Unsupported HEIF property association version')
+  }
 
-  const itemIdSize = fullBox.version === 0 ? 2 : 4
-  const associationSize = fullBox.flags & 1 ? 2 : 1
+  const itemIdSize = fullBox.version === 0 ? UINT16_BYTES : UINT32_BYTES
+  const associationSize = fullBox.flags & LARGE_PROPERTY_INDEX_FLAG ? UINT16_BYTES : UINT8_BYTES
   let offset = fullBox.dataStart
-  const entryCount = readUInt(buffer, offset, 4)
-  offset += 4
+  const entryCount = readUInt(buffer, offset, UINT32_BYTES)
+  offset += UINT32_BYTES
   const entries = []
 
   for (let i = 0; i < entryCount; i++) {
     const start = offset
     const itemId = readUInt(buffer, offset, itemIdSize)
     offset += itemIdSize
-    const associationCount = readUInt(buffer, offset, 1)
-    offset += 1 + associationCount * associationSize
+    const associationCount = readUInt(buffer, offset, UINT8_BYTES)
+    offset += UINT8_BYTES + associationCount * associationSize
     if (offset > box.end) throw new Error('Invalid HEIF property association box')
     if (!metadataItemIds.has(itemId)) entries.push(buffer.subarray(start, offset))
   }
 
   if (offset !== box.end) throw new Error('Invalid HEIF property association box')
 
-  const count = Buffer.allocUnsafe(4)
-  writeUInt(count, entries.length, 0, 4)
+  const count = Buffer.allocUnsafe(UINT32_BYTES)
+  writeUInt(count, entries.length, 0, UINT32_BYTES)
   return rewriteFullBox(box, fullBox.version, fullBox.flags, Buffer.concat([count, ...entries]))
 }
 
@@ -333,7 +381,7 @@ function metadataItemRanges(
   const retained = []
 
   for (const item of items) {
-    if (item.constructionMethod > 2) {
+    if (item.constructionMethod > MAX_CONSTRUCTION_METHOD) {
       throw new Error(`Unsupported HEIF item construction method ${item.constructionMethod}`)
     }
 
@@ -381,27 +429,39 @@ function validateSamsungBox(buffer, box) {
     throw new Error('Unsupported Samsung sefd metadata structure')
   }
 
-  if (box.end - box.dataStart < 20) invalid()
-  if (buffer.toString('latin1', box.end - 4, box.end) !== SAMSUNG_SIGNATURE.TRAILER) invalid()
+  if (box.end - box.dataStart < SAMSUNG_DIRECTORY_HEADER_BYTES + SAMSUNG_FOOTER_BYTES) invalid()
+  if (
+    buffer.toString('latin1', box.end - SAMSUNG_SIGNATURE_BYTES, box.end) !==
+    SAMSUNG_SIGNATURE.TRAILER
+  ) {
+    invalid()
+  }
 
-  const directorySize = buffer.readUInt32LE(box.end - 8)
-  const directoryStart = box.end - 8 - directorySize
-  if (directorySize < 12 || directoryStart < box.dataStart) invalid()
-  const directorySignature = buffer.toString('latin1', directoryStart, directoryStart + 4)
+  const directorySize = buffer.readUInt32LE(box.end - SAMSUNG_FOOTER_BYTES)
+  const directoryStart = box.end - SAMSUNG_FOOTER_BYTES - directorySize
+  if (directorySize < SAMSUNG_DIRECTORY_HEADER_BYTES || directoryStart < box.dataStart) invalid()
+  const directorySignature = buffer.toString(
+    'latin1',
+    directoryStart,
+    directoryStart + SAMSUNG_SIGNATURE_BYTES
+  )
   if (directorySignature !== SAMSUNG_SIGNATURE.DIRECTORY) invalid()
 
-  const count = buffer.readUInt32LE(directoryStart + 8)
-  if (12 + count * 12 !== directorySize) invalid()
+  const count = buffer.readUInt32LE(directoryStart + SAMSUNG_DIRECTORY_COUNT_OFFSET)
+  if (SAMSUNG_DIRECTORY_HEADER_BYTES + count * SAMSUNG_DIRECTORY_ENTRY_BYTES !== directorySize) {
+    invalid()
+  }
 
   for (let i = 0; i < count; i++) {
-    const entry = directoryStart + 12 + i * 12
-    const offset = buffer.readUInt32LE(entry + 4)
-    const size = buffer.readUInt32LE(entry + 8)
+    const entry =
+      directoryStart + SAMSUNG_DIRECTORY_HEADER_BYTES + i * SAMSUNG_DIRECTORY_ENTRY_BYTES
+    const offset = buffer.readUInt32LE(entry + UINT32_BYTES)
+    const size = buffer.readUInt32LE(entry + SAMSUNG_ITEM_HEADER_BYTES)
     const start = directoryStart - offset
 
-    if (start < box.dataStart || size < 8 || size > offset) invalid()
+    if (start < box.dataStart || size < SAMSUNG_ITEM_HEADER_BYTES || size > offset) invalid()
     if (buffer.readUInt32LE(start) !== buffer.readUInt32LE(entry)) invalid()
-    if (buffer.readUInt32LE(start + 4) > size - 8) invalid()
+    if (buffer.readUInt32LE(start + UINT32_BYTES) > size - SAMSUNG_ITEM_HEADER_BYTES) invalid()
   }
 }
 
@@ -461,13 +521,13 @@ function resolveMetadataRanges(buffer, container, itemLocations, metadataItemIds
   const mdatMetadataRanges = metadataItemRanges(
     itemLocations,
     metadataItemIds,
-    0,
+    FILE_OFFSET_CONSTRUCTION_METHOD,
     buffer.byteLength
   )
   assertNoMetadataOverlap(
     itemLocations,
     metadataItemIds,
-    0,
+    FILE_OFFSET_CONSTRUCTION_METHOD,
     buffer.byteLength,
     vendorMetadataRanges
   )
@@ -479,7 +539,7 @@ function resolveMetadataRanges(buffer, container, itemLocations, metadataItemIds
   const idatMetadataRanges = metadataItemRanges(
     itemLocations,
     metadataItemIds,
-    1,
+    ITEM_DATA_CONSTRUCTION_METHOD,
     idatPayloadLength
   )
 
@@ -522,10 +582,12 @@ function rewriteMetaBox(buffer, container, rewrites) {
     }
   })
 
-  const padding = meta.size - meta.headerSize - 4 - rewrittenChildren.byteLength
-  if (padding < 8) throw new Error('Cannot preserve the HEIF metadata box size')
+  const padding = meta.size - meta.headerSize - FULL_BOX_FIELDS_BYTES - rewrittenChildren.byteLength
+  if (padding < FREE_BOX_HEADER_BYTES) {
+    throw new Error('Cannot preserve the HEIF metadata box size')
+  }
 
-  const free = encodeBox(BOX_TYPE.FREE, Buffer.alloc(padding - 8))
+  const free = encodeBox(BOX_TYPE.FREE, Buffer.alloc(padding - FREE_BOX_HEADER_BYTES))
   return rewriteFullBox(
     meta,
     metaFullBox.version,

@@ -1,16 +1,26 @@
-const BOX_HEADER_SIZE = 8
-const EXTENDED_BOX_HEADER_SIZE = 16
+const BYTE_BASE = 0x100
+const MAX_UINT_BYTES = 8
+const BOX_SIZE_BYTES = 4
+const BOX_TYPE_BYTES = 4
+const BOX_HEADER_SIZE = BOX_SIZE_BYTES + BOX_TYPE_BYTES
+const EXTENDED_SIZE_BYTES = 8
+const EXTENDED_BOX_HEADER_SIZE = BOX_HEADER_SIZE + EXTENDED_SIZE_BYTES
+const FULL_BOX_VERSION_BYTES = 1
+const FULL_BOX_FLAGS_BYTES = 3
+const FULL_BOX_HEADER_SIZE = FULL_BOX_VERSION_BYTES + FULL_BOX_FLAGS_BYTES
+const SIZE_TO_END_MARKER = 0
+const EXTENDED_SIZE_MARKER = 1
 const MAX_UINT32 = 0xffffffff
 
 function readUInt(buffer, offset, size) {
   if (size === 0) return 0
-  if (size > 8 || offset < 0 || offset + size > buffer.byteLength) {
+  if (size > MAX_UINT_BYTES || offset < 0 || offset + size > buffer.byteLength) {
     throw new Error('Invalid ISO-BMFF integer')
   }
 
   let value = 0
   for (let i = 0; i < size; i++) {
-    value = value * 0x100 + buffer[offset + i]
+    value = value * BYTE_BASE + buffer[offset + i]
     if (!Number.isSafeInteger(value)) {
       throw new Error('ISO-BMFF integer exceeds the safe integer range')
     }
@@ -26,8 +36,8 @@ function writeUInt(buffer, value, offset, size) {
 
   let remaining = value
   for (let i = offset + size - 1; i >= offset; i--) {
-    buffer[i] = remaining % 0x100
-    remaining = Math.floor(remaining / 0x100)
+    buffer[i] = remaining % BYTE_BASE
+    remaining = Math.floor(remaining / BYTE_BASE)
   }
 
   if (remaining !== 0) {
@@ -41,19 +51,19 @@ function parseBox(buffer, offset, end = buffer.byteLength) {
   }
 
   const size32 = buffer.readUInt32BE(offset)
-  const type = buffer.toString('latin1', offset + 4, offset + 8)
+  const type = buffer.toString('latin1', offset + BOX_SIZE_BYTES, offset + BOX_HEADER_SIZE)
 
   let headerSize = BOX_HEADER_SIZE
   let size = size32
 
-  if (size32 === 1) {
+  if (size32 === EXTENDED_SIZE_MARKER) {
     if (offset + EXTENDED_BOX_HEADER_SIZE > end) {
       throw new Error(`Invalid ISO-BMFF ${type} box header`)
     }
 
     headerSize = EXTENDED_BOX_HEADER_SIZE
-    size = readUInt(buffer, offset + 8, 8)
-  } else if (size32 === 0) {
+    size = readUInt(buffer, offset + BOX_HEADER_SIZE, EXTENDED_SIZE_BYTES)
+  } else if (size32 === SIZE_TO_END_MARKER) {
     size = end - offset
   }
 
@@ -68,7 +78,7 @@ function parseBox(buffer, offset, end = buffer.byteLength) {
     end: offset + size,
     size,
     headerSize,
-    extendsToEnd: size32 === 0
+    extendsToEnd: size32 === SIZE_TO_END_MARKER
   }
 }
 
@@ -85,19 +95,19 @@ function parseBoxes(buffer, start = 0, end = buffer.byteLength) {
 }
 
 function parseFullBox(buffer, box) {
-  if (box.dataStart + 4 > box.end) {
+  if (box.dataStart + FULL_BOX_HEADER_SIZE > box.end) {
     throw new Error(`Invalid ISO-BMFF ${box.type} full box`)
   }
 
   return {
     version: buffer[box.dataStart],
-    flags: readUInt(buffer, box.dataStart + 1, 3),
-    dataStart: box.dataStart + 4
+    flags: readUInt(buffer, box.dataStart + FULL_BOX_VERSION_BYTES, FULL_BOX_FLAGS_BYTES),
+    dataStart: box.dataStart + FULL_BOX_HEADER_SIZE
   }
 }
 
 function encodeBox(type, payload, opts = {}) {
-  if (typeof type !== 'string' || Buffer.byteLength(type, 'latin1') !== 4) {
+  if (typeof type !== 'string' || Buffer.byteLength(type, 'latin1') !== BOX_TYPE_BYTES) {
     throw new Error('ISO-BMFF box type must be four bytes')
   }
 
@@ -110,10 +120,13 @@ function encodeBox(type, payload, opts = {}) {
   }
 
   const result = Buffer.allocUnsafe(size)
-  result.writeUInt32BE(opts.extendsToEnd ? 0 : extended ? 1 : size, 0)
-  result.write(type, 4, 4, 'latin1')
+  result.writeUInt32BE(
+    opts.extendsToEnd ? SIZE_TO_END_MARKER : extended ? EXTENDED_SIZE_MARKER : size,
+    0
+  )
+  result.write(type, BOX_SIZE_BYTES, BOX_TYPE_BYTES, 'latin1')
 
-  if (extended) writeUInt(result, size, 8, 8)
+  if (extended) writeUInt(result, size, BOX_HEADER_SIZE, EXTENDED_SIZE_BYTES)
   payload.copy(result, headerSize)
 
   return result
@@ -127,10 +140,10 @@ function rewriteBox(box, payload, opts = {}) {
 }
 
 function rewriteFullBox(box, version, flags, payload, opts) {
-  const fullBox = Buffer.allocUnsafe(4 + payload.byteLength)
+  const fullBox = Buffer.allocUnsafe(FULL_BOX_HEADER_SIZE + payload.byteLength)
   fullBox[0] = version
-  writeUInt(fullBox, flags, 1, 3)
-  payload.copy(fullBox, 4)
+  writeUInt(fullBox, flags, FULL_BOX_VERSION_BYTES, FULL_BOX_FLAGS_BYTES)
+  payload.copy(fullBox, FULL_BOX_HEADER_SIZE)
   return rewriteBox(box, fullBox, opts)
 }
 

@@ -277,40 +277,48 @@ test('image.metadata.strip() strips AVIF metadata', async (t) => {
   t.absent(stripped.includes('<x:xmpmeta'))
 })
 
-test('image.metadata.strip() rejects invalid HEIC', async (t) => {
-  const path = './test/fixtures/metadata-xmp.heic'
-
-  const missingMeta = fs.readFileSync(path)
+test('image.metadata.strip() rejects HEIC without a meta box', async (t) => {
+  const missingMeta = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   missingMeta.write('free', missingMeta.indexOf('meta'))
   await t.exception(() => image(missingMeta).metadata.strip(), /Invalid HEIF metadata container/)
+})
 
-  const invalidBox = fs.readFileSync(path)
+test('image.metadata.strip() rejects HEIC with an invalid meta box size', async (t) => {
+  const invalidBox = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   invalidBox.writeUInt32BE(4, invalidBox.indexOf('meta') - 4)
   await t.exception(() => image(invalidBox).metadata.strip(), /Invalid ISO-BMFF meta box size/)
+})
 
-  const primaryMetadata = fs.readFileSync(path)
+test('image.metadata.strip() rejects a primary HEIC metadata item', async (t) => {
+  const primaryMetadata = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   primaryMetadata.writeUInt16BE(2, primaryMetadata.indexOf('pitm') + 8)
   await t.exception(
     () => image(primaryMetadata).metadata.strip(),
     /Cannot remove the primary HEIF item/
   )
+})
 
-  const unsupportedLocation = fs.readFileSync(path)
+test('image.metadata.strip() rejects an unsupported HEIC item location version', async (t) => {
+  const unsupportedLocation = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   unsupportedLocation[unsupportedLocation.indexOf('iloc') + 4] = 3
   await t.exception(
     () => image(unsupportedLocation).metadata.strip(),
     /Unsupported HEIF item location version/
   )
+})
 
-  const sharedStorage = fs.readFileSync(path)
+test('image.metadata.strip() rejects HEIC metadata sharing image storage', async (t) => {
+  const sharedStorage = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   const iloc = sharedStorage.indexOf('iloc')
   sharedStorage.writeUInt32BE(sharedStorage.readUInt32BE(iloc + 18), iloc + 32)
   await t.exception(
     () => image(sharedStorage).metadata.strip(),
     /HEIF metadata shares storage with a retained item/
   )
+})
 
-  const outsideMdat = fs.readFileSync(path)
+test('image.metadata.strip() rejects HEIC metadata outside a media data box', async (t) => {
+  const outsideMdat = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   outsideMdat.writeUInt32BE(8, outsideMdat.indexOf('iloc') + 32)
   await t.exception(
     () => image(outsideMdat).metadata.strip(),

@@ -166,7 +166,7 @@ function rewriteBoxes(buffer, boxes, transform) {
   return Buffer.concat(output)
 }
 
-function zeroRanges(buffer, ranges) {
+function copyWithZeroedRanges(buffer, ranges) {
   const output = Buffer.from(buffer)
   if (ranges.length === 0) return output
 
@@ -195,5 +195,5 @@ export {
   rewriteBoxes,
   rewriteFullBox,
   writeUInt,
-  zeroRanges
+  copyWithZeroedRanges
 }

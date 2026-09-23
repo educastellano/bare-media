@@ -8,7 +8,7 @@ import {
   rewriteBoxes,
   rewriteFullBox,
   writeUInt,
-  zeroRanges
+  copyWithZeroedRanges
 } from '../../container/isobmff'
 
 const BOX_TYPE = {
@@ -573,7 +573,9 @@ function rewriteMetaBox(buffer, container, rewrites) {
         return rewriteItemProperties(buffer, box, metadataItemIds)
       case BOX_TYPE.ITEM_DATA: {
         const payload = buffer.subarray(box.dataStart, box.end)
-        return rewriteBox(box, zeroRanges(payload, idatMetadataRanges), { extendsToEnd: false })
+        return rewriteBox(box, copyWithZeroedRanges(payload, idatMetadataRanges), {
+          extendsToEnd: false
+        })
       }
       default:
         return box.extendsToEnd
@@ -622,7 +624,7 @@ function stripHEIFMetadata(buffer) {
   )
 
   const fileMetadataRanges = mergeRanges([...mdatMetadataRanges, ...vendorMetadataRanges])
-  const output = zeroRanges(buffer, fileMetadataRanges)
+  const output = copyWithZeroedRanges(buffer, fileMetadataRanges)
   for (const box of vendorBoxes) {
     rewriteAsZeroFilledBox(box, BOX_TYPE.FREE).copy(output, box.start)
   }

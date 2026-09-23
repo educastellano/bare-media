@@ -6,7 +6,7 @@ import {
   parseFullBox,
   readUInt,
   writeUInt,
-  zeroRanges
+  copyWithZeroedRanges
 } from '../src/container/isobmff'
 
 test('ISO-BMFF boxes encode and parse round trip', (t) => {
@@ -30,9 +30,9 @@ test('ISO-BMFF boxes encode and parse round trip', (t) => {
   }
 })
 
-test('ISO-BMFF zeroRanges clears only requested bytes', (t) => {
+test('ISO-BMFF copyWithZeroedRanges clears only requested bytes', (t) => {
   const input = Buffer.from([1, 2, 3, 4, 5, 6, 7])
-  const output = zeroRanges(input, [
+  const output = copyWithZeroedRanges(input, [
     { start: 1, end: 3 },
     { start: 5, end: 6 }
   ])
@@ -86,19 +86,19 @@ test('ISO-BMFF rejects invalid boxes', (t) => {
 
 test('ISO-BMFF rejects invalid zero ranges', (t) => {
   t.exception(
-    () => zeroRanges(Buffer.alloc(4), [{ start: 3, end: 2 }]),
+    () => copyWithZeroedRanges(Buffer.alloc(4), [{ start: 3, end: 2 }]),
     /Invalid ISO-BMFF zero range/
   )
   t.exception(
     () =>
-      zeroRanges(Buffer.alloc(4), [
+      copyWithZeroedRanges(Buffer.alloc(4), [
         { start: 0, end: 2 },
         { start: 1, end: 3 }
       ]),
     /Invalid ISO-BMFF zero range/
   )
   t.exception(
-    () => zeroRanges(Buffer.alloc(4), [{ start: 0, end: 5 }]),
+    () => copyWithZeroedRanges(Buffer.alloc(4), [{ start: 0, end: 5 }]),
     /Invalid ISO-BMFF zero range/
   )
 })

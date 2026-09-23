@@ -412,6 +412,18 @@ function metadataItemRanges(
   return removedRanges
 }
 
+function assertMetadataItemLocations(metadataItemIds, itemLocation) {
+  if (metadataItemIds.size === 0) return
+  if (!itemLocation) throw new Error('Missing HEIF item location box')
+
+  const locatedItemIds = new Set(itemLocation.items.map((item) => item.id))
+  for (const id of metadataItemIds) {
+    if (!locatedItemIds.has(id)) {
+      throw new Error(`Missing HEIF item location for metadata item ${id}`)
+    }
+  }
+}
+
 function assertNoMetadataOverlap(items, metadataItemIds, constructionMethod, sourceLength, ranges) {
   metadataItemRanges(items, metadataItemIds, constructionMethod, sourceLength, ranges)
 }
@@ -615,6 +627,7 @@ function stripHEIFMetadata(buffer) {
   const itemLocationBox = children.find((box) => box.type === BOX_TYPE.ITEM_LOCATION)
   const itemLocation = itemLocationBox ? parseItemLocation(buffer, itemLocationBox) : null
   const itemLocations = itemLocation ? itemLocation.items : []
+  assertMetadataItemLocations(metadataItemIds, itemLocation)
 
   const { mdatMetadataRanges, idatMetadataRanges, vendorMetadataRanges } = resolveMetadataRanges(
     buffer,

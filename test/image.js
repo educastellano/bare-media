@@ -289,6 +289,22 @@ test('image.metadata.strip() rejects HEIC with an invalid meta box size', async 
   await t.exception(() => image(invalidBox).metadata.strip(), /Invalid ISO-BMFF meta box size/)
 })
 
+test('image.metadata.strip() rejects HEIC metadata without an iloc box', async (t) => {
+  const missingLocation = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  missingLocation.write('free', missingLocation.indexOf('iloc'))
+  await t.exception(() => image(missingLocation).metadata.strip(), /Missing HEIF item location box/)
+})
+
+test('image.metadata.strip() rejects HEIC metadata without an item location', async (t) => {
+  const missingItemLocation = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  const iloc = missingItemLocation.indexOf('iloc')
+  missingItemLocation.writeUInt16BE(99, iloc + 40) // Replace the XMP item's ID in iloc.
+  await t.exception(
+    () => image(missingItemLocation).metadata.strip(),
+    /Missing HEIF item location for metadata item 3/
+  )
+})
+
 test('image.metadata.strip() rejects a primary HEIC metadata item', async (t) => {
   const primaryMetadata = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
   primaryMetadata.writeUInt16BE(2, primaryMetadata.indexOf('pitm') + 8)

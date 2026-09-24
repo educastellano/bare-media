@@ -11,6 +11,7 @@ const FULL_BOX_HEADER_SIZE = FULL_BOX_VERSION_BYTES + FULL_BOX_FLAGS_BYTES
 const SIZE_TO_END_MARKER = 0
 const EXTENDED_SIZE_MARKER = 1
 const MAX_UINT32 = 0xffffffff
+const MAX_BOXES = 4096
 
 function readUInt(buffer, offset, size) {
   if (size === 0) return 0
@@ -86,6 +87,10 @@ function parseBoxes(buffer, start = 0, end = buffer.byteLength) {
   const boxes = []
 
   for (let offset = start; offset < end;) {
+    if (boxes.length === MAX_BOXES) {
+      throw new Error('Too many ISO-BMFF boxes')
+    }
+
     const box = parseBox(buffer, offset, end)
     boxes.push(box)
     offset = box.end

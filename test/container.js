@@ -3,6 +3,7 @@ import { test } from 'brittle'
 import {
   encodeBox,
   parseBox,
+  parseBoxes,
   parseFullBox,
   readUInt,
   writeUInt,
@@ -101,6 +102,20 @@ test('ISO-BMFF parseBox rejects sizes past the buffer end', (t) => {
   const invalidSize = encodeBox('test', Buffer.alloc(0))
   invalidSize.writeUInt32BE(9, 0)
   t.exception(() => parseBox(invalidSize, 0), /Invalid ISO-BMFF test box size/)
+})
+
+test('ISO-BMFF parseBoxes rejects more than the maximum number of boxes', (t) => {
+  const box = encodeBox('test', Buffer.alloc(0))
+  const buffer = Buffer.concat(Array(4097).fill(box))
+
+  t.exception(() => parseBoxes(buffer), /Too many ISO-BMFF boxes/)
+})
+
+test('ISO-BMFF parseBoxes accepts up to the maximum number of boxes', (t) => {
+  const box = encodeBox('test', Buffer.alloc(0))
+  const buffer = Buffer.concat(Array(4096).fill(box))
+
+  t.is(parseBoxes(buffer).length, 4096)
 })
 
 test('ISO-BMFF parseFullBox rejects short payloads', (t) => {

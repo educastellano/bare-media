@@ -5,6 +5,7 @@ import os from 'bare-os'
 import barePath from 'bare-path'
 
 import { image } from '..'
+import { encodeBox, parseBoxes } from '../src/container/isobmff'
 import { calculateFitDimensions } from '../src/image/dimensions'
 import { isStripMetadataSupported } from '../types'
 import {
@@ -365,6 +366,34 @@ test('image.metadata.strip() rejects HEIC with zero-byte iloc extents', async (t
   zeroByteExtents.writeUInt16BE(0xffff, iloc + 16) // First item declares many extents
 
   await t.exception(() => image(zeroByteExtents).metadata.strip(), /Invalid HEIF item location box/)
+})
+
+test('image.metadata.strip() rejects HEIC with too many item extents', async (t) => {
+  const entry = encodeBox('infe', Buffer.from([2, 0, 0, 0, 0, 1, 0, 0, 69, 120, 105, 102, 0]))
+  const iinf = encodeBox('iinf', Buffer.concat([Buffer.alloc(4), Buffer.from([0, 1]), entry]))
+  const location = Buffer.alloc(14 + 4097 * 8)
+  location[4] = 0x44
+  location.writeUInt16BE(1, 6)
+  location.writeUInt16BE(1, 8)
+  location.writeUInt16BE(4097, 12)
+  const iloc = encodeBox('iloc', location)
+  const meta = encodeBox('meta', Buffer.concat([Buffer.alloc(4), iinf, iloc]))
+  const ftyp = encodeBox('ftyp', Buffer.from('heic\x00\x00\x00\x00heicmif1', 'latin1'))
+
+  await t.exception(
+    () => image.metadata.strip(Buffer.concat([ftyp, meta])),
+    /Invalid HEIF item location box/
+  )
+})
+
+test('image.metadata.strip() rejects duplicate HEIC item information boxes', async (t) => {
+  const source = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  const meta = parseBoxes(source).find((box) => box.type === 'meta')
+  const duplicate = encodeBox('iinf', Buffer.from([0, 0, 0, 0, 0, 0]))
+  const input = Buffer.concat([source.subarray(0, meta.end), duplicate, source.subarray(meta.end)])
+  input.writeUInt32BE(meta.size + duplicate.length, meta.start)
+
+  await t.exception(() => image.metadata.strip(input), /Invalid HEIF item information/)
 })
 
 test('isStripMetadataSupported() agrees with strip()', async (t) => {

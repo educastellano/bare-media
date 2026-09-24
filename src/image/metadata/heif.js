@@ -47,6 +47,7 @@ const ITEM_LOCATION_VERSION_WITH_LONG_ID = 2
 const MAX_ITEM_REFERENCE_VERSION = 1
 const MAX_PROPERTY_ASSOCIATION_VERSION = 1
 const LARGE_PROPERTY_INDEX_FLAG = 1
+const MAX_ITEM_EXTENTS = 4096
 
 const ITEM_TYPE_BYTES = 4
 const ITEM_LOCATION_SIZE_BYTES = 2
@@ -183,6 +184,7 @@ function parseItemLocation(buffer, box) {
   offset += itemCountSize
 
   const items = []
+  let totalExtents = 0
   const itemHeaderSize =
     itemIdSize +
     (fullBox.version > 0 ? UINT16_BYTES : 0) +
@@ -211,6 +213,10 @@ function parseItemLocation(buffer, box) {
     offset += baseOffsetSize
     const extentCount = readUInt(buffer, offset, UINT16_BYTES)
     offset += UINT16_BYTES
+    totalExtents += extentCount
+    if (totalExtents > MAX_ITEM_EXTENTS) {
+      throw new Error('Invalid HEIF item location box')
+    }
     if ((lengthSize === 0 && extentCount > 1) || extentCount * extentSize > box.end - offset) {
       throw new Error('Invalid HEIF item location box')
     }
@@ -514,10 +520,15 @@ function parseMetaContainer(buffer) {
   const metaFullBox = parseFullBox(buffer, meta)
   const children = parseBoxes(buffer, metaFullBox.dataStart, meta.end)
 
-  const itemInfoBox = children.find((box) => box.type === BOX_TYPE.ITEM_INFO)
-  if (!itemInfoBox) throw new Error('Invalid HEIF item information')
+  const itemInfoBoxes = children.filter((box) => box.type === BOX_TYPE.ITEM_INFO)
+  if (itemInfoBoxes.length !== 1) {
+    throw new Error('Invalid HEIF item information')
+  }
+  if (children.filter((box) => box.type === BOX_TYPE.ITEM_LOCATION).length > 1) {
+    throw new Error('Invalid HEIF item location box')
+  }
 
-  const itemInfo = parseItemInfo(buffer, itemInfoBox)
+  const itemInfo = parseItemInfo(buffer, itemInfoBoxes[0])
 
   return {
     topLevel,

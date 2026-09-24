@@ -342,6 +342,31 @@ test('image.metadata.strip() rejects HEIC metadata outside a media data box', as
   )
 })
 
+test('image.metadata.strip() strips HEIC with an implicit item extent length', async (t) => {
+  const implicitLength = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  implicitLength.writeUInt32BE(0, implicitLength.indexOf('iloc') + 22) // Primary item runs to EOF.
+  const stripped = await image(implicitLength).metadata.strip()
+
+  t.absent(stripped.includes('<x:xmpmeta'))
+})
+
+test('image.metadata.strip() rejects HEIC with an implicit extent past the end', async (t) => {
+  const pastEnd = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  const iloc = pastEnd.indexOf('iloc')
+  pastEnd.writeUInt32BE(pastEnd.byteLength + 1, iloc + 18)
+  pastEnd.writeUInt32BE(0, iloc + 22)
+  await t.exception(() => image(pastEnd).metadata.strip(), /Invalid HEIF item data location/)
+})
+
+test('image.metadata.strip() rejects HEIC with zero-byte iloc extents', async (t) => {
+  const zeroByteExtents = fs.readFileSync('./test/fixtures/metadata-xmp.heic')
+  const iloc = zeroByteExtents.indexOf('iloc')
+  zeroByteExtents[iloc + 8] = 0 // Offset and length fields have zero width
+  zeroByteExtents.writeUInt16BE(0xffff, iloc + 16) // First item declares many extents
+
+  await t.exception(() => image(zeroByteExtents).metadata.strip(), /Invalid HEIF item location box/)
+})
+
 test('isStripMetadataSupported() agrees with strip()', async (t) => {
   const formats = ['avif', 'bmp', 'gif', 'heic', 'ico', 'jpg', 'png', 'svg', 'tiff', 'webp']
 

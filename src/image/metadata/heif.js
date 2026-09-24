@@ -183,8 +183,18 @@ function parseItemLocation(buffer, box) {
   offset += itemCountSize
 
   const items = []
+  const itemHeaderSize =
+    itemIdSize +
+    (fullBox.version > 0 ? UINT16_BYTES : 0) +
+    UINT16_BYTES +
+    baseOffsetSize +
+    UINT16_BYTES
+  const extentSize = indexSize + offsetSize + lengthSize
 
   for (let i = 0; i < itemCount; i++) {
+    if (offset + itemHeaderSize > box.end) {
+      throw new Error('Invalid HEIF item location box')
+    }
     const start = offset
     const id = readUInt(buffer, offset, itemIdSize)
     offset += itemIdSize
@@ -201,6 +211,9 @@ function parseItemLocation(buffer, box) {
     offset += baseOffsetSize
     const extentCount = readUInt(buffer, offset, UINT16_BYTES)
     offset += UINT16_BYTES
+    if ((lengthSize === 0 && extentCount > 1) || extentCount * extentSize > box.end - offset) {
+      throw new Error('Invalid HEIF item location box')
+    }
 
     const extents = []
     for (let j = 0; j < extentCount; j++) {
@@ -215,8 +228,6 @@ function parseItemLocation(buffer, box) {
       offset += lengthSize
       extents.push({ offset: extentOffset, length })
     }
-
-    if (offset > box.end) throw new Error('Invalid HEIF item location box')
 
     items.push({
       id,
@@ -393,9 +404,15 @@ function metadataItemRanges(
         throw new Error('Invalid HEIF implicit extent length')
       }
 
+      const start = item.baseOffset + extent.offset
+      const end = extent.length === 0 ? sourceLength : start + extent.length
+      if (sourceLength === null || start > end || end > sourceLength) {
+        throw new Error('Invalid HEIF item data location')
+      }
+
       const range = {
-        start: item.baseOffset + extent.offset,
-        end: item.baseOffset + extent.offset + (extent.length || sourceLength)
+        start,
+        end
       }
       const ranges = metadataItemIds.has(item.id) ? removed : retained
       ranges.push(range)
